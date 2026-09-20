@@ -1,0 +1,12 @@
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.7.0
+aiofiles>=24.1.0
+python-multipart>=0.0.9
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+pypdf>=4.0.0
+numpy>=1.24.0
+scipy>=1.11.0
+Pillow>=10.0.0
+adbutils>=2.8.0
