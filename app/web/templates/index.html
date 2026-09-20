@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniNexus Studio - Unified Agent, Voice & Device OS</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<!-- Header -->
+<header>
+    <div class="brand">
+        <div class="brand-icon">Ω</div>
+        <div class="brand-info">
+            <h1>OmniNexus Studio</h1>
+            <p>Unified Multi-Agent, Qwen3 Voice & Android Operating System</p>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="tab-agent">
+            <span>🤖</span> <span>Agent Workspace</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-voice">
+            <span>🎙️</span> <span>Qwen3 Voice & Audiobooks</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-duplex">
+            <span>💬</span> <span>Voice Agent (Duplex)</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-android">
+            <span>📱</span> <span>Android Commander</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-gateway">
+            <span>⚡</span> <span>OpenClaw Gateway</span>
+        </button>
+        <button class="nav-tab" data-tab="tab-comfyui">
+            <span>🧩</span> <span>ComfyUI & MCP</span>
+        </button>
+    </nav>
+
+    <!-- Global Status -->
+    <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting...</span>
+    </div>
+</header>
+
+<!-- Main Workspace -->
+<main>
+
+    <!-- ================================================================= -->
+    <!-- TAB 1: AUTONOMOUS AGENT WORKSPACE                                 -->
+    <!-- ================================================================= -->
+    <section id="tab-agent" class="tab-pane active">
+        <div class="grid-2">
+            <!-- Left: Task Console & Planning Flow -->
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title"><span>🤖</span> OpenManus ReAct Planning Engine</div>
+                        <div class="card-subtitle">Decomposes goals into autonomous multi-step tool calls with self-correction</div>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-history" id="chatHistory">
+                        <div class="message-bubble message-assistant">
+                            👋 <strong>OmniNexus AI initialized.</strong><br>
+                            I combine OpenManus planning, KODE SDK event channels, II-Agent persistence, Qwen3-TTS voice generation, and Android automation.<br><br>
+                            Try prompts like:<br>
+                            • <em>"Озвучь на русском: Привет, добро пожаловать в студию OmniNexus!"</em><br>
+                            • <em>"Search latest updates on AI agents and write report to workspace"</em><br>
+                            • <em>"Inspect Android device root status and take screenshot"</em>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-bar">
+                        <input type="text" id="agentPromptInput" placeholder="Enter task or instruction..." onkeydown="if(event.key==='Enter') runAgentTask()">
+                        <button class="btn btn-primary" id="btnRunTask" onclick="runAgentTask()">
+                            Execute ReAct Agent
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Real-time Execution & Kode 3-Channel Event Bus -->
+            <div style="display:flex; flex-direction:column; gap:1.25rem;">
+                <!-- ReAct Execution Timeline -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>📋</span> Execution Plan & Steps</div>
+                        <span class="tag-pill" style="color:var(--accent-cyan);">Manus Core</span>
+                    </div>
+                    <div class="timeline-list" id="planTimeline">
+                        <div style="font-size:0.8rem;color:var(--text-muted);padding:0.5rem;">
+                            No active plan. Submit a task on the left to see autonomous plan decomposition.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kode SDK Three-Channel Live Feed -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>📡</span> Kode SDK 3-Channel Event Bus</div>
+                        <div style="display:flex;gap:0.4rem;">
+                            <span class="tag-pill feed-progress">Progress</span>
+                            <span class="tag-pill feed-control">Control</span>
+                            <span class="tag-pill feed-monitor">Monitor</span>
+                        </div>
+                    </div>
+                    <div class="channel-feed" id="eventFeed"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: QWEN3-TTS & AUDIOBOOK STUDIO                               -->
+    <!-- ================================================================= -->
+    <section id="tab-voice" class="tab-pane">
+        <div class="grid-2">
+            <!-- Left: Speech Synthesis Playground -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span>🎙️</span> Qwen3-TTS Voice Studio</div>
+                    <span class="tag-pill" style="color:var(--accent-purple);">24 kHz High-Fidelity</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Speaker</label>
+                    <select id="ttsSpeakerSelect"></select>
+                </div>
+
+                <div class="grid-2" style="margin-bottom:1rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Language</label>
+                        <select id="ttsLanguageSelect">
+                            <option value="English">English</option>
+                            <option value="Russian">Russian (Русский)</option>
+                            <option value="Chinese">Chinese (中文)</option>
+                            <option value="Japanese">Japanese (日本語)</option>
+                            <option value="Korean">Korean (한국어)</option>
+                            <option value="German">German (Deutsch)</option>
+                            <option value="French">French (Français)</option>
+                            <option value="Spanish">Spanish (Español)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Emotion / Cadence Instruction</label>
+                        <input type="text" id="ttsInstructInput" placeholder="e.g. calm narrator, excited, whisper">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Speed Rate</label>
+                    <input type="range" id="ttsSpeedSlider" min="0.7" max="1.5" step="0.05" value="1.0" style="width:100%;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Text to Synthesize</label>
+                    <textarea id="ttsTextInput" rows="4" placeholder="Enter text to synthesize...">Welcome to OmniNexus Studio, powered by Qwen3-TTS with voice cloning, voice design, and multi-speaker audiobook conversion.</textarea>
+                </div>
+
+                <button class="btn btn-primary" id="btnSynthesize" style="width:100%;" onclick="generateSpeech()">
+                    Generate Speech (Qwen3-TTS)
+                </button>
+
+                <!-- Audio Visualizer Box -->
+                <div class="audio-player-box">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span id="currentAudioTitle" style="font-size:0.8rem;font-weight:600;color:var(--accent-cyan);">Audio Player Ready</span>
+                        <a id="audioDownloadLink" href="#" download="synthesized_speech.wav" class="btn btn-secondary" style="display:none;font-size:0.72rem;padding:0.2rem 0.6rem;">Download WAV</a>
+                    </div>
+                    <canvas id="waveformCanvas" width="500" height="60"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: Voice Clone, Voice Design & Audiobook Converter -->
+            <div style="display:flex; flex-direction:column; gap:1.25rem;">
+                
+                <!-- Voice Cloning & Voice Design Accordion Cards -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>🧬</span> Voice Cloning & Voice Design</div>
+                        <span class="tag-pill" style="color:var(--accent-emerald);">Zero-Shot</span>
+                    </div>
+
+                    <!-- Voice Clone -->
+                    <div style="margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+                        <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem;color:#fff;">1. Clone from Reference Sample</div>
+                        <div class="grid-2">
+                            <input type="text" id="cloneVoiceName" placeholder="Voice Name (e.g. Morgan_Narrator)">
+                            <input type="file" id="cloneAudioFile" accept="audio/*">
+                        </div>
+                        <button class="btn btn-secondary" style="margin-top:0.6rem;width:100%;" onclick="cloneVoice()">Clone Voice</button>
+                        <div id="cloneStatus" style="font-size:0.75rem;color:var(--accent-emerald);margin-top:0.4rem;"></div>
+                    </div>
+
+                    <!-- Voice Design -->
+                    <div>
+                        <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem;color:#fff;">2. Voice Design (Prompt Timbre)</div>
+                        <input type="text" id="designVoicePrompt" placeholder="e.g. A deep gravelly male voice with a calm slow British cadence" style="margin-bottom:0.5rem;">
+                        <button class="btn btn-secondary" style="width:100%;" onclick="designVoice()">Design Voice from Prompt</button>
+                        <div id="designStatus" style="font-size:0.75rem;color:var(--accent-cyan);margin-top:0.4rem;"></div>
+                    </div>
+                </div>
+
+                <!-- Audiobook Converter (WhiskeyCoder) -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>📚</span> Multi-Speaker Audiobook Converter</div>
+                        <span class="tag-pill" style="color:var(--accent-amber);">PDF • EPUB • DOCX • TXT</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Book Title</label>
+                        <input type="text" id="audiobookTitleInput" placeholder="The Chronicles of Nexus">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Upload Book Document</label>
+                        <input type="file" id="audiobookFileInput" accept=".pdf,.epub,.docx,.txt,.md">
+                    </div>
+                    <div class="grid-2" style="margin-bottom:1rem;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Narrator Voice</label>
+                            <select id="narratorVoiceSelect"></select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Dialogue Character Voice</label>
+                            <select id="dialogueVoiceSelect"></select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" style="width:100%;" onclick="startAudiobookConversion()">
+                        Convert Document to Full Audiobook
+                    </button>
+
+                    <!-- Progress Box -->
+                    <div id="audiobookProgressBox" style="display:none;margin-top:1rem;">
+                        <div style="font-size:0.78rem;margin-bottom:0.35rem;display:flex;justify-content:space-between;">
+                            <span id="audiobookProgressText">Synthesizing Chunks...</span>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.5);height:8px;border-radius:4px;overflow:hidden;">
+                            <div id="audiobookProgressBar" style="width:0%;height:100%;background:var(--accent-emerald);transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Download Box -->
+                    <div id="audiobookDownloadBox" style="display:none;margin-top:1rem;">
+                        <a id="audiobookDownloadBtn" href="#" class="btn btn-primary" style="width:100%;" download>
+                            ⬇️ Download Complete Audiobook (WAV)
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: FULL-DUPLEX VOICE AGENT                                    -->
+    <!-- ================================================================= -->
+    <section id="tab-duplex" class="tab-pane">
+        <div class="card" style="max-width:900px;margin:0 auto;">
+            <div class="card-header">
+                <div>
+                    <div class="card-title"><span>💬</span> Bidirectional Duplex Voice Assistant</div>
+                    <div class="card-subtitle">Real-time speech dialogue with ReAct reasoning and Qwen3-TTS spoken feedback</div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <select id="duplexSpeakerSelect" style="font-size:0.8rem;padding:0.3rem 0.6rem;"></select>
+                </div>
+            </div>
+
+            <div class="chat-container" style="height:420px;">
+                <div class="chat-history" id="duplexChatHistory">
+                    <div class="message-bubble message-assistant">
+                        🎙️ Voice mode active. Click the microphone or type below. I will respond aloud using Qwen3-TTS.
+                    </div>
+                </div>
+
+                <div class="chat-input-bar">
+                    <button class="btn btn-secondary" id="btnRecordVoice" onclick="toggleVoiceRecord()">
+                        🎤 Hold / Click to Speak
+                    </button>
+                    <input type="text" id="duplexTextInput" placeholder="Or type conversational message..." onkeydown="if(event.key==='Enter') sendDuplexMessage()">
+                    <button class="btn btn-primary" onclick="sendDuplexMessage()">Send</button>
+                </div>
+                <div id="duplexStatus" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.4rem;">Ready.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 4: ANDROID COMMANDER & ROOT HUB (AWESOME-ANDROID-ROOT)        -->
+    <!-- ================================================================= -->
+    <section id="tab-android" class="tab-pane">
+        <div class="grid-2">
+            <!-- Left: Android Live Screen & Device Controls -->
+            <div class="card" style="text-align:center;">
+                <div class="card-header" style="text-align:left;">
+                    <div>
+                        <div class="card-title"><span>📱</span> Android Device Mirror & Touch Control</div>
+                        <div class="card-subtitle">Click anywhere on the screen to simulate live tap input</div>
+                    </div>
+                    <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.25rem 0.6rem;" onclick="refreshAndroidScreenshot()">
+                        🔄 Refresh
+                    </button>
+                </div>
+
+                <!-- Device Selector -->
+                <div class="form-group" style="text-align:left;margin-bottom:1rem;">
+                    <label class="form-label">Active Device</label>
+                    <select id="androidDeviceSelect" onchange="refreshAndroidScreenshot()"></select>
+                </div>
+
+                <!-- Phone Frame with Screen -->
+                <div class="android-device-frame">
+                    <div class="android-screen" onclick="handleScreenClick(event)">
+                        <img id="androidScreenImg" src="" alt="Android Screen Mirror">
+                    </div>
+                </div>
+
+                <!-- Device Controls D-Pad -->
+                <div class="dpad-container" style="max-width:360px;margin:1rem auto 0 auto;">
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_BACK')">◀ Back</button>
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_HOME')">● Home</button>
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_APP_SWITCH')">■ Recents</button>
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_VOLUME_DOWN')">🔉 Vol-</button>
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_POWER')">⏻ Power</button>
+                    <button class="btn btn-secondary" onclick="sendAndroidKey('KEYCODE_VOLUME_UP')">🔊 Vol+</button>
+                </div>
+
+                <div style="display:flex;gap:0.5rem;max-width:360px;margin:0.75rem auto 0 auto;">
+                    <input type="text" id="androidTextInput" placeholder="Text to type into device..." onkeydown="if(event.key==='Enter') sendAndroidText()">
+                    <button class="btn btn-primary" onclick="sendAndroidText()">Type</button>
+                </div>
+            </div>
+
+            <!-- Right: Root Terminal, Debloater, & Awesome Root Catalog -->
+            <div style="display:flex;flex-direction:column;gap:1.25rem;">
+                
+                <!-- Root Terminal (su -c) -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>⚡</span> Root Shell Terminal (su)</div>
+                        <span class="tag-pill" style="color:var(--accent-rose);">KernelSU / Magisk</span>
+                    </div>
+                    <div id="rootShellOutput" class="channel-feed" style="height:140px;margin-bottom:0.6rem;">
+# Connected to Android root daemon (KernelSU v0.9.5)
+# Ready for su commands...
+                    </div>
+                    <div style="display:flex;gap:0.5rem;">
+                        <input type="text" id="rootShellInput" placeholder="Command (e.g. whoami, uname -a, dumpsys battery)" onkeydown="if(event.key==='Enter') runRootShellCommand()">
+                        <button class="btn btn-danger" onclick="runRootShellCommand()">Run SU</button>
+                    </div>
+                </div>
+
+                <!-- Debloater & Package Manager -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>🚫</span> Package Manager & Debloater</div>
+                        <button class="btn btn-secondary" style="font-size:0.72rem;padding:0.2rem 0.5rem;" onclick="loadPackages()">Reload</button>
+                    </div>
+                    <div id="packagesList" class="timeline-list" style="max-height:160px;"></div>
+                </div>
+
+                <!-- Awesome Android Root Knowledge Base Search -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title"><span>🛡️</span> Awesome Android Root Catalog</div>
+                        <span class="tag-pill" style="color:var(--accent-blue);">600+ Curated Items</span>
+                    </div>
+                    <div class="grid-2" style="margin-bottom:0.75rem;">
+                        <input type="text" id="catalogSearchInput" placeholder="Search Magisk modules, root apps..." oninput="loadRootCatalog()">
+                        <select id="catalogCategorySelect" onchange="loadRootCatalog()">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div id="rootCatalogGrid" class="timeline-list" style="max-height:220px;"></div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 5: OPENCLAW ZERO-TOKEN & MODEL GATEWAY                        -->
+    <!-- ================================================================= -->
+    <section id="tab-gateway" class="tab-pane">
+        <div class="grid-2">
+            <!-- Left: Test Bench -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span>⚡</span> OpenClaw Universal Model Gateway</div>
+                    <span class="tag-pill" style="color:var(--accent-emerald);">Zero-Token Routing</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Model Selection</label>
+                    <select id="gatewayModelSelect"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prompt</label>
+                    <textarea id="gatewayPromptInput" rows="4" placeholder="Enter test query...">Explain the architecture of an event-driven multi-agent system with speech synthesis in 3 concise bullet points.</textarea>
+                </div>
+                <button class="btn btn-primary" onclick="testModelPrompt()" style="width:100%;">
+                    Test Model Completion
+                </button>
+
+                <div class="form-group" style="margin-top:1rem;">
+                    <label class="form-label">Response & Latency</label>
+                    <div id="gatewayResponseOutput" class="channel-feed" style="height:180px;">Output will appear here...</div>
+                </div>
+            </div>
+
+            <!-- Right: Zero-Token Sessions -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span>🌐</span> Active Zero-Token Web Sessions</div>
+                    <button class="btn btn-secondary" style="font-size:0.72rem;padding:0.2rem 0.5rem;" onclick="loadModels()">Refresh</button>
+                </div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+                    Reverse proxy sessions allowing tokenless calls across Claude, ChatGPT, DeepSeek, Qwen, Gemini, and Kimi.
+                </div>
+                <div id="zeroTokenSessionsList" class="timeline-list" style="max-height:380px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 6: COMFYUI & MCP HUB                                          -->
+    <!-- ================================================================= -->
+    <section id="tab-comfyui" class="tab-pane">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span>🧩</span> ComfyUI-FL-Qwen3TTS Node Pack</div>
+                    <span class="tag-pill" style="color:var(--accent-purple);">ComfyUI Compatible</span>
+                </div>
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    Directly exportable workflows and custom nodes for ComfyUI. Place the included <code>comfyui_custom_nodes/ComfyUI-FL-Qwen3TTS</code> into your <code>ComfyUI/custom_nodes/</code> folder.
+                </p>
+
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                    <div class="step-item" style="justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:600;">Custom Voice Pipeline Workflow</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);">Model Loader → Custom Voice → Save Audio</div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="exportWorkflow('custom_voice')">Export JSON</button>
+                    </div>
+
+                    <div class="step-item" style="justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:600;">Voice Cloning Workflow</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);">Model Loader → Load Reference → Voice Clone → Save Audio</div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="exportWorkflow('voice_clone')">Export JSON</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><span>🔌</span> Model Context Protocol (MCP) Tools</div>
+                    <span class="tag-pill" style="color:var(--accent-cyan);">MCP Spec</span>
+                </div>
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem;">
+                    Universal tool standard allowing external tool providers to plug into the agent loop.
+                </p>
+                <div class="timeline-list">
+                    <div class="step-item">
+                        <span class="step-badge" style="color:var(--accent-emerald);">CONNECTED</span>
+                        <div>
+                            <div style="font-weight:600;">browser_use (CLI MCP)</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);">Tools: browser_exec, browser_screenshot, browser_click</div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-badge" style="color:var(--accent-emerald);">CONNECTED</span>
+                        <div>
+                            <div style="font-weight:600;">filesystem_server</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);">Tools: fs_read, fs_write, fs_diff</div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <span class="step-badge" style="color:var(--accent-emerald);">CONNECTED</span>
+                        <div>
+                            <div style="font-weight:600;">sqlite_db</div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);">Tools: query_sql, describe_table</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
