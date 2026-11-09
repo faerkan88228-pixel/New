@@ -1,10 +1,13 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
 from app.agentic_workspace.service import (
     candidate_risk_flags,
     git_blob_sha1,
+    _require_admin,
     normalize_github_repository,
     parse_skill_frontmatter,
     score_candidate,
@@ -55,6 +58,13 @@ class TestAgenticWorkspaceParsing(unittest.TestCase):
             git_blob_sha1("hello\n"),
             "ce013625030ba8dba906f756967f9e9ca394464a",
         )
+
+    def test_workspace_admin_token_is_required_and_compared(self):
+        with patch.dict(os.environ, {"WORKSPACE_ADMIN_TOKEN": "workspace-secret"}):
+            _require_admin("workspace-secret")
+            with self.assertRaises(HTTPException) as error:
+                _require_admin("wrong-token")
+            self.assertEqual(error.exception.status_code, 401)
 
     def test_irrelevant_candidate_has_zero_score(self):
         score, terms = score_candidate(
