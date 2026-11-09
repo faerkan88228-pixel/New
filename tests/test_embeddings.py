@@ -1,3 +1,4 @@
+import json
 import unittest
 
 import httpx
@@ -16,7 +17,7 @@ class TestGeminiEmbeddingProvider(unittest.IsolatedAsyncioTestCase):
         def handler(request):
             captured["url"] = str(request.url)
             captured["api_key"] = request.headers.get("x-goog-api-key")
-            captured["body"] = request.read().decode("utf-8")
+            captured["body"] = json.loads(request.read().decode("utf-8"))
             return httpx.Response(
                 200,
                 json={"embedding": {"values": [0.25] * EMBEDDING_DIMENSIONS}},
@@ -34,14 +35,14 @@ class TestGeminiEmbeddingProvider(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(vector), EMBEDDING_DIMENSIONS)
         self.assertEqual(captured["api_key"], "test-key")
         self.assertIn("gemini-embedding-001:embedContent", captured["url"])
-        self.assertIn('"taskType":"RETRIEVAL_DOCUMENT"', captured["body"])
-        self.assertIn('"outputDimensionality":768', captured["body"])
+        self.assertEqual(captured["body"]["taskType"], "RETRIEVAL_DOCUMENT")
+        self.assertEqual(captured["body"]["outputDimensionality"], EMBEDDING_DIMENSIONS)
 
     async def test_uses_query_task_type(self):
         captured = {}
 
         def handler(request):
-            captured["body"] = request.read().decode("utf-8")
+            captured["body"] = json.loads(request.read().decode("utf-8"))
             return httpx.Response(
                 200,
                 json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}},
@@ -52,7 +53,7 @@ class TestGeminiEmbeddingProvider(unittest.IsolatedAsyncioTestCase):
             transport=httpx.MockTransport(handler),
         )
         await provider.embed_text("Build a dashboard", task_type="RETRIEVAL_QUERY")
-        self.assertIn('"taskType":"RETRIEVAL_QUERY"', captured["body"])
+        self.assertEqual(captured["body"]["taskType"], "RETRIEVAL_QUERY")
 
     async def test_missing_api_key_fails_closed(self):
         provider = GeminiEmbeddingProvider(api_key="", transport=httpx.MockTransport(lambda _: None))
