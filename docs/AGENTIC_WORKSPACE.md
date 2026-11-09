@@ -35,6 +35,21 @@ Apply supabase/migrations/202611090001_agentic_workspace.sql using the Supabase 
 5. Activate individual candidates only after reviewing their source URL. Candidates with risk markers or incomplete skill frontmatter require explicit review confirmation.
 6. Enter a natural-language task and build the pipeline. The response reports matched skills, UI modules, source links, and the policy gate.
 
-## Important implementation boundary
+## Original OpenManus runtime
 
-The current OmniNexus task executor still contains a keyword-based planning implementation. This workspace adds real repository discovery, cloud-backed overlay management, capability activation, and relevance routing into the agent's task metadata. It does not claim that arbitrary third-party skill instructions or UI source code are executable runtime plugins. A subsequent engineering increment should replace the heuristic task planner with a governed model-driven planner and explicit tool contracts before enabling skill instruction execution.
+The host application delegates execution to the original OpenManus agent through a separately deployed HTTP runtime. This separation is required because both codebases use the top-level Python package name `app`; importing both into one interpreter would cause module collisions.
+
+- Runtime source: [faerkan88228-pixel/OpenManus](https://github.com/faerkan88228-pixel/OpenManus)
+- Runtime adapter PR: [OpenManus PR #1](https://github.com/faerkan88228-pixel/OpenManus/pull/1) (draft; not merged)
+- Runtime API: `POST /v1/agent/run`
+- Host-to-runtime transport: HTTPS only, public port 443
+- Required host secrets: `OPENMANUS_RUNTIME_URL`, `OPENMANUS_RUNTIME_TOKEN`
+- Required runtime secret: `PROMETHEUS_RUNTIME_TOKEN` with the same value
+
+The OpenManus runtime must be deployed from the reviewed runtime branch/PR and configured with a real `config/config.toml` containing the chosen model provider credentials. The example config is not a working provider connection.
+
+## Execution boundary
+
+The previous keyword-based local planner is no longer used for task execution. If the OpenManus runtime is not configured or unreachable, the task endpoint returns an error instead of reporting a simulated success.
+
+The host fetches active skill and UI source files from GitHub at execution time and checks the Git blob SHA against the SHA recorded during scan/review. Changed sources are skipped until rescanned and reactivated. Repository code is not installed, imported, or injected into the browser; reviewed source content is supplied to OpenManus as bounded supplemental reference context.
