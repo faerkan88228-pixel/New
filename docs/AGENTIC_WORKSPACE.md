@@ -54,4 +54,6 @@ The previous keyword-based local planner is no longer used for task execution. T
 
 The host fetches active skill and UI source files from GitHub at execution time and checks the Git blob SHA against the SHA recorded during scan/review. Changed sources are skipped until rescanned and reactivated. Repository code is not installed, imported, or injected into the browser; reviewed source content is supplied to OpenManus as bounded supplemental reference context.
 
-The current natural-language candidate ranker is deterministic lexical matching (token overlap plus a small phrase bonus), not embedding/vector RAG. The AI Studio URLs shown in the page are reference links only; they are not connected API integrations. A later increment is required for real embedding-based retrieval, Skill Builder draft generation, and direct integrations with those AI Studio apps.
+When `GEMINI_API_KEY` is configured, repository scans generate 768-dimensional `gemini-embedding-001` document vectors, store them in Supabase pgvector, and query them with `RETRIEVAL_QUERY` embeddings. The router combines semantic similarity with lexical matching. The pipeline reports `hybrid_vector` when vector candidates are available and `lexical_fallback` when the key is absent or no vectors are indexed. Re-scan repositories after adding the key to populate embeddings.
+
+The AI Studio URLs shown in the page are reference links only; they are not connected API integrations. Skill Builder draft generation and direct integrations with those AI Studio apps remain separate future work.
