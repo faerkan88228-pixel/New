@@ -13,7 +13,8 @@ on:
       - "app/agent/manus_core.py"
       - "tests/test_agentic_workspace.py"
       - "tests/test_openmanus_runtime_client.py"
-      - "tests/test_embeddings.py"
+      - "tests/test_embeddings.py tests/test_vector_rag.py"
+      - "tests/test_vector_rag.py"
       - ".github/workflows/agentic-workspace.yml"
 
 permissions:
