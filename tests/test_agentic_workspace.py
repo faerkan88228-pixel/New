@@ -27,6 +27,16 @@ class TestAgenticWorkspaceParsing(unittest.TestCase):
         with self.assertRaises(HTTPException):
             normalize_github_repository("https://example.com/owner/project")
 
+    def test_rejects_github_repository_url_with_embedded_credentials(self):
+        with self.assertRaises(HTTPException):
+            normalize_github_repository(
+                "https://user:secret@github.com/owner/project"
+            )
+
+    def test_rejects_invalid_github_url_port(self):
+        with self.assertRaises(HTTPException):
+            normalize_github_repository("https://github.com:invalid/owner/project")
+
     def test_parses_skill_frontmatter_without_yaml_execution(self):
         fields = parse_skill_frontmatter(
             "---\nname: UI Architect\ndescription: Builds responsive interfaces\n---\n# Skill"
