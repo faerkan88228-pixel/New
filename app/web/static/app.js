@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadModels();
     refreshAndroidScreenshot();
     initWaveformCanvas();
+    initWorkspace();
 });
 
 // ============================================================================
@@ -44,6 +45,9 @@ function initNavigation() {
             if (targetId === "tab-android") {
                 refreshAndroidScreenshot();
                 loadPackages();
+            }
+            if (targetId === "tab-agentic-workspace" && workspaceAdminToken) {
+                loadWorkspaceData();
             }
         });
     });
@@ -758,5 +762,219 @@ async function exportWorkflow(type) {
         a.click();
     } catch (e) {
         alert("Export failed: " + e.message);
+    }
+}
+
+
+// ============================================================================
+// PROMETHEUS AGENTIC WORKSPACE — LIVE REPOSITORY OVERLAYS
+// ============================================================================
+
+let workspaceAdminToken = "";
+
+async function workspaceApi(path, options = {}) {
+    const headers = Object.assign(
+        { "Content-Type": "application/json", "X-Workspace-Admin": workspaceAdminToken },
+        options.headers || {}
+    );
+    const response = await fetch(path, Object.assign({}, options, { headers }));
+    let payload = {};
+    try { payload = await response.json(); } catch (_) { payload = {}; }
+    if (!response.ok) throw new Error(payload.detail || ("Workspace API error " + response.status));
+    return payload;
+}
+
+function workspaceEscape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[char]);
+}
+
+function setWorkspaceStatus(message, isError = false) {
+    const element = document.getElementById("workspaceStatus");
+    if (!element) return;
+    element.textContent = message;
+    element.style.color = isError ? "#ff8f82" : "#b9a18e";
+}
+
+function initWorkspace() {
+    const tokenInput = document.getElementById("workspaceAdminToken");
+    if (tokenInput) {
+        tokenInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") connectWorkspace();
+        });
+    }
+}
+
+async function connectWorkspace() {
+    const input = document.getElementById("workspaceAdminToken");
+    workspaceAdminToken = (input && input.value || "").trim();
+    if (!workspaceAdminToken) {
+        setWorkspaceStatus("Введите admin token", true);
+        return;
+    }
+    await loadWorkspaceData();
+}
+
+async function loadWorkspaceData() {
+    setWorkspaceStatus("Загрузка облачной конфигурации…");
+    try {
+        const responses = await Promise.all([
+            workspaceApi("/api/workspace/repositories"),
+            workspaceApi("/api/workspace/candidates")
+        ]);
+        renderWorkspaceRepositories(responses[0].repositories || []);
+        renderWorkspaceCandidates(responses[1].candidates || []);
+        setWorkspaceStatus("Cloud state синхронизирован");
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+        const root = document.getElementById("workspaceRepositories");
+        if (root) root.innerHTML = '<div class="aw-empty card">' + workspaceEscape(error.message) + '</div>';
+    }
+}
+
+function renderWorkspaceRepositories(repositories) {
+    const root = document.getElementById("workspaceRepositories");
+    if (!root) return;
+    if (!repositories.length) {
+        root.innerHTML = '<div class="aw-empty card">В облачной базе пока нет репозиториев. Примените SQL-миграцию Agentic Workspace.</div>';
+        return;
+    }
+    root.innerHTML = repositories.map(repo => {
+        const isBase = !!repo.is_base;
+        const enabled = !!repo.enabled;
+        const status = String(repo.scan_status || "not_scanned").toUpperCase().replace(/_/g, " ");
+        const count = Number(repo.scan_candidate_count || 0);
+        const id = workspaceEscape(repo.id);
+        return '<article class="aw-repo-card">' +
+            '<div class="aw-repo-top"><div><div class="aw-repo-name">' + workspaceEscape(repo.repo_full_name) + '</div>' +
+            '<div class="aw-repo-meta">branch: ' + workspaceEscape(repo.default_branch || "—") + ' · ' + workspaceEscape(status) + '</div></div>' +
+            '<span class="' + (isBase ? "aw-base-tag" : "aw-overlay-tag") + '">' + (isBase ? "FIXED BASE" : "OVERLAY") + '</span></div>' +
+            '<div class="aw-repo-actions"><label class="aw-toggle"><input type="checkbox" ' + (enabled ? "checked " : "") +
+            (isBase ? "disabled " : "") + 'onchange="toggleWorkspaceRepository(\'' + id + '\', this.checked)"> ' +
+            (isBase ? "Базовый слой всегда включён" : "Включить overlay") + '</label>' +
+            '<span class="aw-repo-stats">' + count + ' кандидатов</span></div>' +
+            '<div class="aw-repo-actions"><a class="aw-candidate-source" href="' + workspaceEscape(repo.repo_url) +
+            '" target="_blank" rel="noopener noreferrer">Открыть GitHub ↗</a>' +
+            '<button class="btn btn-secondary" onclick="scanWorkspaceRepository(\'' + id + '\')">Сканировать</button></div>' +
+            '</article>';
+    }).join("");
+}
+
+function renderWorkspaceCandidates(candidates) {
+    const root = document.getElementById("workspaceCandidates");
+    if (!root) return;
+    if (!candidates.length) {
+        root.innerHTML = '<div class="aw-empty-inline">Сканирование ещё не обнаружило навыков или UI-модулей.</div>';
+        return;
+    }
+    root.innerHTML = candidates.map(item => {
+        const active = !!item.is_active;
+        const enabled = !!item.repository_enabled;
+        const flags = Array.isArray(item.risk_flags) ? item.risk_flags : [];
+        const reviewNeeded = flags.length > 0 || item.manifest_state === "manifest_review";
+        const id = workspaceEscape(item.id);
+        return '<article class="aw-candidate"><div class="aw-candidate-head"><div>' +
+            '<div class="aw-candidate-title">' + workspaceEscape(item.name) + '</div>' +
+            '<div class="aw-candidate-desc">' + workspaceEscape(item.description) + '</div>' +
+            '</div><span class="aw-candidate-kind">' + workspaceEscape(String(item.kind).toUpperCase()) + '</span></div>' +
+            '<div class="aw-candidate-desc">' + workspaceEscape(item.repository_name) + ' · ' + workspaceEscape(item.path) +
+            ' · confidence ' + Math.round(Number(item.confidence || 0) * 100) + '%</div>' +
+            '<a class="aw-candidate-source" href="' + workspaceEscape(item.source_url) + '" target="_blank" rel="noopener noreferrer">Проверить исходник ↗</a>' +
+            '<div class="aw-candidate-footer"><span class="' + (reviewNeeded ? "aw-risk" : "aw-repo-stats") + '">' +
+            (reviewNeeded ? "ТРЕБУЕТСЯ РУЧНАЯ ПРОВЕРКА" : workspaceEscape(item.manifest_state)) + '</span>' +
+            '<button class="btn ' + (active ? "btn-primary" : "btn-secondary") + '" ' + (enabled ? "" : "disabled ") +
+            'onclick="toggleWorkspaceCandidate(\'' + id + '\', ' + (!active) + ', ' + reviewNeeded + ')">' +
+            (active ? "Отключить" : "Активировать") + '</button></div></article>';
+    }).join("");
+}
+
+async function addWorkspaceRepository() {
+    const input = document.getElementById("workspaceRepositoryUrl");
+    const url = (input && input.value || "").trim();
+    if (!url) return;
+    setWorkspaceStatus("Проверка GitHub и сканирование…");
+    try {
+        await workspaceApi("/api/workspace/repositories", {
+            method: "POST",
+            body: JSON.stringify({ url })
+        });
+        if (input) input.value = "";
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function toggleWorkspaceRepository(repositoryId, enabled) {
+    try {
+        await workspaceApi("/api/workspace/repositories/" + encodeURIComponent(repositoryId), {
+            method: "PATCH",
+            body: JSON.stringify({ enabled })
+        });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+        await loadWorkspaceData();
+    }
+}
+
+async function scanWorkspaceRepository(repositoryId) {
+    setWorkspaceStatus("Сканирование дерева репозитория…");
+    try {
+        await workspaceApi("/api/workspace/repositories/" + encodeURIComponent(repositoryId) + "/scan", { method: "POST" });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function toggleWorkspaceCandidate(candidateId, enabled, reviewNeeded) {
+    let confirmReview = false;
+    if (enabled && reviewNeeded) {
+        confirmReview = window.confirm("У источника есть маркеры риска или неполный манифест. Вы проверили исходный файл на GitHub и хотите продолжить?");
+        if (!confirmReview) return;
+    }
+    try {
+        await workspaceApi("/api/workspace/candidates/" + encodeURIComponent(candidateId), {
+            method: "PATCH",
+            body: JSON.stringify({ enabled, confirm_review: confirmReview })
+        });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function buildWorkspacePipeline() {
+    const input = document.getElementById("workspaceGoal");
+    const goal = (input && input.value || "").trim();
+    const root = document.getElementById("workspacePipeline");
+    if (!goal || !root) return;
+    root.innerHTML = '<div class="aw-empty-inline">Анализ запроса и поиск по активным источникам…</div>';
+    try {
+        const result = await workspaceApi("/api/workspace/pipeline", {
+            method: "POST",
+            body: JSON.stringify({ goal })
+        });
+        const stages = result.pipeline || [];
+        const cards = stages.map(stage => {
+            const selected = stage.selected || [];
+            const title = String(stage.stage || "").replace(/_/g, " ").toUpperCase();
+            return '<article class="aw-pipeline-stage"><strong>' + workspaceEscape(title) + '</strong>' +
+                '<p>' + workspaceEscape(stage.detail || (selected.length + " подтверждённых совпадений")) + '</p>' +
+                (selected.length ? selected.map(item => '<p>↳ ' + workspaceEscape(item.name) +
+                    ' · ' + Math.round(Number(item.confidence || 0) * 100) + '% · <a class="aw-candidate-source" href="' +
+                    workspaceEscape(item.source_url) + '" target="_blank" rel="noopener noreferrer">source ↗</a></p>').join("") : "") +
+                '</article>';
+        }).join("");
+        const empty = result.status === "no_active_match" ?
+            '<div class="aw-empty-inline">' + workspaceEscape(result.message) + '</div>' : "";
+        root.innerHTML = '<div class="aw-candidate-desc">Pipeline status: <strong>' +
+            workspaceEscape(String(result.status || "").toUpperCase()) + '</strong></div>' + cards + empty;
+        setWorkspaceStatus("Pipeline собран из активированных источников");
+    } catch (error) {
+        root.innerHTML = '<div class="aw-empty-inline">' + workspaceEscape(error.message) + '</div>';
+        setWorkspaceStatus(error.message, true);
     }
 }

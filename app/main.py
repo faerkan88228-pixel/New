@@ -491,3 +491,8 @@ async def get_comfyui_nodes():
 @app.get("/api/comfyui/workflow/{workflow_type}")
 async def export_comfyui_workflow(workflow_type: str = "custom_voice"):
     return comfyui_registry.generate_workflow_template(workflow_type)
+
+
+# Prometheus Agentic Workspace — repository overlay and skill routing API
+from app.agentic_workspace.service import router as agentic_workspace_router
+app.include_router(agentic_workspace_router)

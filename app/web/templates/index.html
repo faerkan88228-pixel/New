@@ -38,6 +38,9 @@
         <button class="nav-tab" data-tab="tab-comfyui">
             <span>🧩</span> <span>ComfyUI & MCP</span>
         </button>
+        <button class="nav-tab" data-tab="tab-agentic-workspace">
+            <span>🧠</span> <span>Agentic Workspace</span>
+        </button>
     </nav>
 
     <!-- Global Status -->
@@ -492,6 +495,91 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+
+    <!-- AGENTIC WORKSPACE -->
+    <section id="tab-agentic-workspace" class="tab-pane">
+        <div class="aw-shell">
+            <div class="aw-heading">
+                <div>
+                    <div class="aw-eyebrow">PROMETHEUS PROJECT · INFINITY [PHASE 2]</div>
+                    <h2>Agentic Workspace</h2>
+                    <p>Базовый агент, подключаемые репозитории и автоматический подбор навыков по естественному запросу.</p>
+                </div>
+                <div class="aw-core-state"><span class="aw-state-dot"></span> OPENMANUS CORE</div>
+            </div>
+
+            <div class="aw-access card">
+                <div class="aw-access-copy">
+                    <strong>Защищённый доступ</strong>
+                    <span>Токен используется только в текущей сессии страницы и не сохраняется в браузере.</span>
+                </div>
+                <input id="workspaceAdminToken" type="password" autocomplete="off" placeholder="Workspace admin token">
+                <button class="btn btn-primary" onclick="connectWorkspace()">Подключить</button>
+                <span id="workspaceStatus" class="aw-status-text">Требуется подключение</span>
+            </div>
+
+            <div class="aw-section-head">
+                <div><span class="aw-index">01</span><h3>Базовый агент и Repository Overlays</h3></div>
+                <span class="aw-section-note">BASE LAYER · OPTIONAL LAYERS</span>
+            </div>
+
+            <div class="aw-add-repo card">
+                <div>
+                    <strong>Наслоить репозиторий</strong>
+                    <p>Добавьте GitHub URL. Сервер прочитает дерево файлов и найдёт реальные Skill и UI-кандидаты.</p>
+                </div>
+                <div class="aw-add-controls">
+                    <input id="workspaceRepositoryUrl" type="url" placeholder="https://github.com/owner/repository">
+                    <button class="btn btn-primary" onclick="addWorkspaceRepository()">Добавить и сканировать</button>
+                </div>
+            </div>
+
+            <div id="workspaceRepositories" class="aw-repository-grid">
+                <div class="aw-empty card">Подключите Workspace, чтобы загрузить фактический список репозиториев из облачной базы.</div>
+            </div>
+
+            <div class="aw-main-grid">
+                <section class="card aw-candidates-panel">
+                    <div class="aw-panel-heading">
+                        <div><span class="aw-index">02</span><h3>Найденные возможности</h3></div>
+                        <span class="aw-section-note">SKILLS · UI MODULES</span>
+                    </div>
+                    <p class="aw-muted">Кандидаты появляются только после сканирования исходников. Активация требует включённого репозитория и проверки источника.</p>
+                    <div id="workspaceCandidates" class="aw-candidate-list">
+                        <div class="aw-empty-inline">Пока нет данных сканирования.</div>
+                    </div>
+                </section>
+
+                <section class="card aw-router-panel">
+                    <div class="aw-panel-heading">
+                        <div><span class="aw-index">03</span><h3>Natural Language Pipeline</h3></div>
+                        <span class="aw-live-label">SKILL ROUTER</span>
+                    </div>
+                    <label class="aw-field-label" for="workspaceGoal">Опишите задачу обычным языком</label>
+                    <textarea id="workspaceGoal" rows="5" placeholder="Например: создай мобильный интерфейс для фракции Прометей, подключи дизайн-систему и проверь адаптивность..."></textarea>
+                    <button class="btn btn-primary aw-build-button" onclick="buildWorkspacePipeline()">Анализировать и собрать pipeline</button>
+                    <div id="workspacePipeline" class="aw-pipeline-result">
+                        <div class="aw-empty-inline">Pipeline появится после анализа запроса и активных возможностей.</div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="card aw-integrations">
+                <div class="aw-panel-heading">
+                    <div><span class="aw-index">04</span><h3>Внешние интеграционные источники</h3></div>
+                    <span class="aw-section-note">REFERENCE LINKS · NOT CONNECTED</span>
+                </div>
+                <div class="aw-external-grid">
+                    <a href="https://ai.studio/apps/bundled/versatile_execution_agent" target="_blank" rel="noopener noreferrer">Versatile Execution Agent ↗</a>
+                    <a href="https://ai.studio/apps/bundled/gemini-3-5-transcribe-live" target="_blank" rel="noopener noreferrer">Gemini Live Transcription ↗</a>
+                    <a href="https://ai.studio/apps/bundled/flash_lite_browser" target="_blank" rel="noopener noreferrer">Flash Lite Browser ↗</a>
+                    <a href="https://aistudio.google.com/apps/bundled/tickr" target="_blank" rel="noopener noreferrer">Tickr ↗</a>
+                </div>
+            </section>
+            <div class="aw-footnote">Сканер не исполняет сторонний код. UI-модули становятся источниками для контролируемой интеграции, а не удалёнными JavaScript-вставками.</div>
         </div>
     </section>
 

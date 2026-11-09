@@ -15,6 +15,7 @@ from app.agent.channels import global_event_bus
 from app.agent.memory import memory_manager
 from app.gateway.router import model_router
 from app.tools.base import tool_registry, ToolResult
+from app.agentic_workspace.service import get_agent_runtime_capabilities
 
 
 class PlanStep(BaseModel):
@@ -31,6 +32,7 @@ class ExecutionPlan(BaseModel):
     goal: str
     steps: List[PlanStep] = Field(default_factory=list)
     status: str = "created"  # "running", "completed", "failed"
+    selected_capabilities: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class ManusAgent:
@@ -50,8 +52,23 @@ class ManusAgent:
             "task_start", f"Starting autonomous task: '{goal}'", session_id=session_id
         )
 
-        # 1. Generate plan
-        plan = await self._create_plan(goal)
+        # 1. Resolve live capabilities from enabled cloud-backed repository overlays.
+        # The fixed base agent remains available when optional cloud services are absent.
+        try:
+            selected_capabilities = await get_agent_runtime_capabilities(goal)
+        except Exception as exc:
+            selected_capabilities = []
+            await global_event_bus.emit_monitor(
+                "skill_router_unavailable", {"reason": type(exc).__name__}
+            )
+        if selected_capabilities:
+            await global_event_bus.emit_progress(
+                "skills_selected", "Matched active repository capabilities",
+                capabilities=selected_capabilities
+            )
+
+        # 2. Generate the base plan with selected capability references attached.
+        plan = await self._create_plan(goal, selected_capabilities)
         await global_event_bus.emit_progress(
             "plan_created", f"Plan generated with {len(plan.steps)} steps",
             plan=[s.model_dump() for s in plan.steps]
@@ -114,10 +131,11 @@ class ManusAgent:
             "status": "completed",
             "duration": duration,
             "steps": [s.model_dump() for s in plan.steps],
+            "selected_capabilities": plan.selected_capabilities,
             "summary": final_summary
         }
 
-    async def _create_plan(self, goal: str) -> ExecutionPlan:
+    async def _create_plan(self, goal: str, selected_capabilities: Optional[List[Dict[str, Any]]] = None) -> ExecutionPlan:
         """Decompose user goal into executable plan steps."""
         g_lower = goal.lower()
         steps = []
@@ -194,7 +212,7 @@ class ManusAgent:
                 tool_args={"operation": "write", "path": "solution.md", "content": f"# OmniNexus Task Solution\n\nGoal: {goal}\nStatus: Completed successfully."}
             ))
 
-        return ExecutionPlan(plan_id=plan_id, goal=goal, steps=steps)
+        return ExecutionPlan(plan_id=plan_id, goal=goal, steps=steps, selected_capabilities=selected_capabilities or [])
 
     def _build_final_summary(self, goal: str, plan: ExecutionPlan) -> str:
         lines = [
