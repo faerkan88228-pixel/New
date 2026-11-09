@@ -628,19 +628,38 @@ async def toggle_workspace_candidate(candidate_id: str, request: CandidateToggle
 @router.post("/pipeline")
 async def build_workspace_pipeline(request: PipelineRequest, x_workspace_admin: str | None = Header(default=None, alias="X-Workspace-Admin")):
     _require_admin(x_workspace_admin)
-    capabilities = await workspace_service.runtime_capabilities(request.goal)
+    bundle = await workspace_service.runtime_bundle(request.goal)
+    capabilities = bundle["capabilities"]
+    retrieval_mode = bundle["retrieval_mode"]
     skills = [item for item in capabilities if item["kind"] == "skill"]
     ui_modules = [item for item in capabilities if item["kind"] == "ui"]
     return {
-        "goal": request.goal, "status": "ready" if capabilities else "no_active_match",
+        "goal": request.goal,
+        "status": "ready" if capabilities else "no_active_match",
+        "retrieval_mode": retrieval_mode,
         "pipeline": [
             {"stage": "intent_analysis", "status": "completed", "detail": "Запрос принят и токенизирован."},
+            {
+                "stage": "semantic_retrieval",
+                "status": "completed",
+                "mode": retrieval_mode,
+                "detail": (
+                    "Gemini embeddings + Supabase pgvector + lexical reranking."
+                    if retrieval_mode == "hybrid_vector"
+                    else "GEMINI_API_KEY не настроен или векторные записи отсутствуют; используется lexical fallback."
+                ),
+            },
             {"stage": "repository_skill_search", "status": "completed", "selected": skills},
             {"stage": "ui_module_search", "status": "completed", "selected": ui_modules},
             {"stage": "policy_gate", "status": "awaiting_execution", "detail": "Перед запуском сервер повторно загружает источники и сверяет Git blob SHA; содержимое передаётся OpenManus как ограниченный контекст. Код overlay не устанавливается и не исполняется напрямую."},
         ],
-        "selected_skills": skills, "selected_ui_modules": ui_modules,
-        "message": "Найдены активные возможности." if capabilities else "Нет активированных возможностей, релевантных запросу. Включите overlay и активируйте подходящие элементы.",
+        "selected_skills": skills,
+        "selected_ui_modules": ui_modules,
+        "message": (
+            "Найдены активные возможности."
+            if capabilities
+            else "Нет активированных возможностей, релевантных запросу. Базовый OpenManus всё равно доступен."
+        ),
     }
 
 
