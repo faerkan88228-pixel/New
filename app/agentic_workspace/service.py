@@ -492,6 +492,16 @@ async def build_workspace_pipeline(request: PipelineRequest, x_workspace_admin: 
     }
 
 
+@router.post("/execute")
+async def execute_workspace_pipeline(
+    request: PipelineRequest,
+    x_workspace_admin: str | None = Header(default=None, alias="X-Workspace-Admin"),
+):
+    _require_admin(x_workspace_admin)
+    from app.agent.manus_core import manus_agent
+    return await manus_agent.run_task("agentic-workspace", request.goal)
+
+
 async def get_agent_runtime_capabilities(goal: str) -> list[dict[str, Any]]:
     """Return metadata for active capabilities from enabled repository overlays."""
     return await workspace_service.runtime_capabilities(goal)
