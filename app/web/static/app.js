@@ -137,7 +137,11 @@ async function runAgentTask() {
     btn.innerText = "Thinking & Planning...";
 
     const timeline = document.getElementById("planTimeline");
-    timeline.innerHTML = `<div class="step-item in_progress"><span>⏳</span><span>Analyzing goal: "${goal}"</span></div>`;
+    timeline.textContent = "";
+    const loadingStep = document.createElement("div");
+    loadingStep.className = "step-item in_progress";
+    loadingStep.textContent = "Analyzing goal: " + goal;
+    timeline.appendChild(loadingStep);
 
     try {
         const resp = await fetch("/api/agent/task", {
@@ -150,25 +154,50 @@ async function runAgentTask() {
         });
         const data = await resp.json();
 
-        // Render plan steps
-        timeline.innerHTML = "";
+        if (!resp.ok) {
+            throw new Error(data.detail || ("Agent request failed: " + resp.status));
+        }
+
+        // Render untrusted agent output as text, never as HTML.
+        timeline.textContent = "";
         if (data.steps && data.steps.length) {
             data.steps.forEach(s => {
                 const stepEl = document.createElement("div");
-                stepEl.className = `step-item ${s.status}`;
-                stepEl.innerHTML = `
-                    <span class="step-badge">${s.status === 'completed' ? '✓' : '•'} Step ${s.step_id}</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:600;">${s.title}</div>
-                        ${s.tool_name ? `<div style="font-size:0.72rem;color:var(--text-muted);">Tool: <code>${s.tool_name}</code></div>` : ''}
-                        ${s.result ? `<div style="font-size:0.75rem;color:var(--accent-cyan);margin-top:2px;">${s.result.substring(0, 150)}</div>` : ''}
-                    </div>
-                `;
+                const allowedStatus = ["completed", "in_progress", "failed"].includes(s.status)
+                    ? s.status
+                    : "completed";
+                stepEl.className = "step-item " + allowedStatus;
+
+                const badge = document.createElement("span");
+                badge.className = "step-badge";
+                badge.textContent = (allowedStatus === "completed" ? "✓ " : "• ") + "Step " + s.step_id;
+                stepEl.appendChild(badge);
+
+                const details = document.createElement("div");
+                details.style.flex = "1";
+                const title = document.createElement("div");
+                title.style.fontWeight = "600";
+                title.textContent = String(s.title || "");
+                details.appendChild(title);
+
+                if (s.tool_name) {
+                    const tool = document.createElement("div");
+                    tool.className = "agent-step-tool";
+                    tool.textContent = "Tool: " + String(s.tool_name);
+                    details.appendChild(tool);
+                }
+                if (s.result) {
+                    const result = document.createElement("div");
+                    result.className = "agent-step-result";
+                    result.textContent = String(s.result).slice(0, 150);
+                    details.appendChild(result);
+                }
+                stepEl.appendChild(details);
                 timeline.appendChild(stepEl);
             });
         }
 
-        addChatMessage("assistant", data.summary || "Task executed successfully.");
+        addChatMessage("assistant", data.summary || "OpenManus returned no summary.");
     } catch (err) {
         addChatMessage("assistant", `Error running task: ${err.message}`);
     } finally {
@@ -186,7 +215,7 @@ function addChatMessage(role, text) {
     if (!container) return;
     const msg = document.createElement("div");
     msg.className = `message-bubble message-${role}`;
-    msg.innerHTML = text.replace(/\n/g, "<br>");
+    msg.textContent = String(text == null ? "" : text);
     container.appendChild(msg);
     container.scrollTop = container.scrollHeight;
 }
