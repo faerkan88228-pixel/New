@@ -977,9 +977,44 @@ async function buildWorkspacePipeline() {
             '<div class="aw-empty-inline">' + workspaceEscape(result.message) + '</div>' : "";
         root.innerHTML = '<div class="aw-candidate-desc">Pipeline status: <strong>' +
             workspaceEscape(String(result.status || "").toUpperCase()) + '</strong></div>' + cards + empty;
-        setWorkspaceStatus("Pipeline собран из активированных источников");
+        const runButton = document.getElementById("workspaceRunButton");
+        if (runButton) runButton.disabled = false;
+        setWorkspaceStatus("Pipeline собран. Можно запускать OpenManus.");
     } catch (error) {
         root.innerHTML = '<div class="aw-empty-inline">' + workspaceEscape(error.message) + '</div>';
         setWorkspaceStatus(error.message, true);
+    }
+}
+
+
+async function executeWorkspaceTask() {
+    const input = document.getElementById("workspaceGoal");
+    const goal = (input && input.value || "").trim();
+    const output = document.getElementById("workspaceExecution");
+    const button = document.getElementById("workspaceRunButton");
+    if (!goal || !output) return;
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "OpenManus выполняет задачу…";
+    }
+    output.textContent = "Передача задачи в отдельный OpenManus runtime…";
+
+    try {
+        const result = await workspaceApi("/api/workspace/execute", {
+            method: "POST",
+            body: JSON.stringify({ goal })
+        });
+        // Agent output is untrusted text: render as text, never as HTML.
+        output.textContent = result.summary || "OpenManus вернул пустой результат.";
+        setWorkspaceStatus("OpenManus завершил выполнение");
+    } catch (error) {
+        output.textContent = error.message;
+        setWorkspaceStatus(error.message, true);
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Выполнить в OpenManus";
+        }
     }
 }
