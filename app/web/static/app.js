@@ -985,8 +985,11 @@ async function scanWorkspaceRepository(repositoryId) {
 
 async function toggleWorkspaceCandidate(candidateId, enabled, reviewNeeded) {
     let confirmReview = false;
-    if (enabled && reviewNeeded) {
-        confirmReview = window.confirm("У источника есть маркеры риска или неполный манифест. Вы проверили исходный файл на GitHub и хотите продолжить?");
+    if (enabled) {
+        const reviewMessage = reviewNeeded
+            ? "У источника есть маркеры риска или неполный манифест. Откройте ссылку на GitHub, проверьте содержимое и подтвердите активацию."
+            : "Перед активацией откройте ссылку на GitHub и проверьте содержимое источника. Подтверждаете, что проверили его?";
+        confirmReview = window.confirm(reviewMessage);
         if (!confirmReview) return;
     }
     try {
