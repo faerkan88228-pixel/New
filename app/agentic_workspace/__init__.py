@@ -1,0 +1,1 @@
+"""Prometheus Agentic Workspace integration."""

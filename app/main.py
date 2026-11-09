@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from app.agent.channels import global_event_bus, AgentEvent
 from app.agent.manus_core import manus_agent
+from app.agentic_workspace.service import _require_admin
 from app.agent.memory import memory_manager
 from app.agent.voice_agent import voice_agent
 from app.android.bridge import android_bridge
@@ -40,13 +41,18 @@ app = FastAPI(
     description="Unified Autonomous Agent, Qwen3-TTS Voice Studio, and Android Commander Platform"
 )
 
-# Enable CORS for preview environment
+# CORS is same-origin by default. Add trusted HTTPS front-end origins explicitly.
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Workspace-Admin"],
 )
 
 # Mount static files
@@ -144,7 +150,11 @@ class AgentTaskRequest(BaseModel):
 
 
 @app.post("/api/agent/task")
-async def run_agent_task(req: AgentTaskRequest):
+async def run_agent_task(
+    req: AgentTaskRequest,
+    x_workspace_admin: str | None = Header(default=None, alias="X-Workspace-Admin"),
+):
+    _require_admin(x_workspace_admin)
     sess_id = req.session_id or "default"
     result = await manus_agent.run_task(sess_id, req.goal)
     return result
@@ -491,3 +501,8 @@ async def get_comfyui_nodes():
 @app.get("/api/comfyui/workflow/{workflow_type}")
 async def export_comfyui_workflow(workflow_type: str = "custom_voice"):
     return comfyui_registry.generate_workflow_template(workflow_type)
+
+
+# Prometheus Agentic Workspace — repository overlay and skill routing API
+from app.agentic_workspace.service import router as agentic_workspace_router
+app.include_router(agentic_workspace_router)

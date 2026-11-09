@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadModels();
     refreshAndroidScreenshot();
     initWaveformCanvas();
+    initWorkspace();
 });
 
 // ============================================================================
@@ -44,6 +45,9 @@ function initNavigation() {
             if (targetId === "tab-android") {
                 refreshAndroidScreenshot();
                 loadPackages();
+            }
+            if (targetId === "tab-agentic-workspace" && workspaceAdminToken) {
+                loadWorkspaceData();
             }
         });
     });
@@ -96,6 +100,11 @@ function handleAgentEvent(data) {
     if (event_type === "step_start" || event_type === "step_completed") {
         updateTimelineStep(payload);
     }
+
+    if (event_type === "skills_selected" && Array.isArray(payload.capabilities)) {
+        const names = payload.capabilities.map(item => item.name).filter(Boolean);
+        appendFeed("progress", "[SKILL ROUTER] " + (names.join(" · ") || "No named capabilities"));
+    }
 }
 
 function appendFeed(channel, text) {
@@ -115,6 +124,10 @@ async function runAgentTask() {
     const input = document.getElementById("agentPromptInput");
     const goal = input.value.trim();
     if (!goal) return;
+    if (!workspaceAdminToken) {
+        addChatMessage("assistant", "Сначала подключите Agentic Workspace и введите admin token.");
+        return;
+    }
 
     addChatMessage("user", goal);
     input.value = "";
@@ -124,35 +137,67 @@ async function runAgentTask() {
     btn.innerText = "Thinking & Planning...";
 
     const timeline = document.getElementById("planTimeline");
-    timeline.innerHTML = `<div class="step-item in_progress"><span>⏳</span><span>Analyzing goal: "${goal}"</span></div>`;
+    timeline.textContent = "";
+    const loadingStep = document.createElement("div");
+    loadingStep.className = "step-item in_progress";
+    loadingStep.textContent = "Analyzing goal: " + goal;
+    timeline.appendChild(loadingStep);
 
     try {
         const resp = await fetch("/api/agent/task", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "X-Workspace-Admin": workspaceAdminToken
+            },
             body: JSON.stringify({ goal, session_id: "default" })
         });
         const data = await resp.json();
 
-        // Render plan steps
-        timeline.innerHTML = "";
+        if (!resp.ok) {
+            throw new Error(data.detail || ("Agent request failed: " + resp.status));
+        }
+
+        // Render untrusted agent output as text, never as HTML.
+        timeline.textContent = "";
         if (data.steps && data.steps.length) {
             data.steps.forEach(s => {
                 const stepEl = document.createElement("div");
-                stepEl.className = `step-item ${s.status}`;
-                stepEl.innerHTML = `
-                    <span class="step-badge">${s.status === 'completed' ? '✓' : '•'} Step ${s.step_id}</span>
-                    <div style="flex:1;">
-                        <div style="font-weight:600;">${s.title}</div>
-                        ${s.tool_name ? `<div style="font-size:0.72rem;color:var(--text-muted);">Tool: <code>${s.tool_name}</code></div>` : ''}
-                        ${s.result ? `<div style="font-size:0.75rem;color:var(--accent-cyan);margin-top:2px;">${s.result.substring(0, 150)}</div>` : ''}
-                    </div>
-                `;
+                const allowedStatus = ["completed", "in_progress", "failed"].includes(s.status)
+                    ? s.status
+                    : "completed";
+                stepEl.className = "step-item " + allowedStatus;
+
+                const badge = document.createElement("span");
+                badge.className = "step-badge";
+                badge.textContent = (allowedStatus === "completed" ? "✓ " : "• ") + "Step " + s.step_id;
+                stepEl.appendChild(badge);
+
+                const details = document.createElement("div");
+                details.style.flex = "1";
+                const title = document.createElement("div");
+                title.style.fontWeight = "600";
+                title.textContent = String(s.title || "");
+                details.appendChild(title);
+
+                if (s.tool_name) {
+                    const tool = document.createElement("div");
+                    tool.className = "agent-step-tool";
+                    tool.textContent = "Tool: " + String(s.tool_name);
+                    details.appendChild(tool);
+                }
+                if (s.result) {
+                    const result = document.createElement("div");
+                    result.className = "agent-step-result";
+                    result.textContent = String(s.result).slice(0, 150);
+                    details.appendChild(result);
+                }
+                stepEl.appendChild(details);
                 timeline.appendChild(stepEl);
             });
         }
 
-        addChatMessage("assistant", data.summary || "Task executed successfully.");
+        addChatMessage("assistant", data.summary || "OpenManus returned no summary.");
     } catch (err) {
         addChatMessage("assistant", `Error running task: ${err.message}`);
     } finally {
@@ -170,7 +215,7 @@ function addChatMessage(role, text) {
     if (!container) return;
     const msg = document.createElement("div");
     msg.className = `message-bubble message-${role}`;
-    msg.innerHTML = text.replace(/\n/g, "<br>");
+    msg.textContent = String(text == null ? "" : text);
     container.appendChild(msg);
     container.scrollTop = container.scrollHeight;
 }
@@ -758,5 +803,276 @@ async function exportWorkflow(type) {
         a.click();
     } catch (e) {
         alert("Export failed: " + e.message);
+    }
+}
+
+
+// ============================================================================
+// PROMETHEUS AGENTIC WORKSPACE — LIVE REPOSITORY OVERLAYS
+// ============================================================================
+
+let workspaceAdminToken = "";
+
+async function workspaceApi(path, options = {}) {
+    const headers = Object.assign(
+        { "Content-Type": "application/json", "X-Workspace-Admin": workspaceAdminToken },
+        options.headers || {}
+    );
+    const response = await fetch(path, Object.assign({}, options, { headers }));
+    let payload = {};
+    try { payload = await response.json(); } catch (_) { payload = {}; }
+    if (!response.ok) throw new Error(payload.detail || ("Workspace API error " + response.status));
+    return payload;
+}
+
+function workspaceEscape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[char]);
+}
+
+function setWorkspaceStatus(message, isError = false) {
+    const element = document.getElementById("workspaceStatus");
+    if (!element) return;
+    element.textContent = message;
+    element.style.color = isError ? "#ff8f82" : "#b9a18e";
+}
+
+function initWorkspace() {
+    const tokenInput = document.getElementById("workspaceAdminToken");
+    if (tokenInput) {
+        tokenInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") connectWorkspace();
+        });
+    }
+}
+
+async function connectWorkspace() {
+    const input = document.getElementById("workspaceAdminToken");
+    workspaceAdminToken = (input && input.value || "").trim();
+    if (!workspaceAdminToken) {
+        setWorkspaceStatus("Введите admin token", true);
+        return;
+    }
+    await loadWorkspaceData();
+}
+
+async function loadWorkspaceData() {
+    setWorkspaceStatus("Загрузка облачной конфигурации…");
+    try {
+        let responses = await Promise.all([
+            workspaceApi("/api/workspace/repositories"),
+            workspaceApi("/api/workspace/candidates")
+        ]);
+        const baseRepository = (responses[0].repositories || []).find(item => item.is_base);
+        if (baseRepository && !baseRepository.scan_sha &&
+            ["not_scanned", "queued"].includes(baseRepository.scan_status)) {
+            setWorkspaceStatus("Первичное сканирование базового OpenManus…");
+            await workspaceApi(
+                "/api/workspace/repositories/" + encodeURIComponent(baseRepository.id) + "/scan",
+                { method: "POST" }
+            );
+            responses = await Promise.all([
+                workspaceApi("/api/workspace/repositories"),
+                workspaceApi("/api/workspace/candidates")
+            ]);
+        }
+        renderWorkspaceRepositories(responses[0].repositories || []);
+        renderWorkspaceCandidates(responses[1].candidates || []);
+        setWorkspaceStatus("Cloud state синхронизирован");
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+        const root = document.getElementById("workspaceRepositories");
+        if (root) root.innerHTML = '<div class="aw-empty card">' + workspaceEscape(error.message) + '</div>';
+    }
+}
+
+function renderWorkspaceRepositories(repositories) {
+    const root = document.getElementById("workspaceRepositories");
+    if (!root) return;
+    if (!repositories.length) {
+        root.innerHTML = '<div class="aw-empty card">В облачной базе пока нет репозиториев. Примените SQL-миграцию Agentic Workspace.</div>';
+        return;
+    }
+    root.innerHTML = repositories.map(repo => {
+        const isBase = !!repo.is_base;
+        const enabled = !!repo.enabled;
+        const status = String(repo.scan_status || "not_scanned").toUpperCase().replace(/_/g, " ");
+        const count = Number(repo.scan_candidate_count || 0);
+        const id = workspaceEscape(repo.id);
+        return '<article class="aw-repo-card">' +
+            '<div class="aw-repo-top"><div><div class="aw-repo-name">' + workspaceEscape(repo.repo_full_name) + '</div>' +
+            '<div class="aw-repo-meta">branch: ' + workspaceEscape(repo.default_branch || "—") + ' · ' + workspaceEscape(status) + '</div></div>' +
+            '<span class="' + (isBase ? "aw-base-tag" : "aw-overlay-tag") + '">' + (isBase ? "FIXED BASE" : "OVERLAY") + '</span></div>' +
+            '<div class="aw-repo-actions"><label class="aw-toggle"><input type="checkbox" ' + (enabled ? "checked " : "") +
+            (isBase ? "disabled " : "") + 'onchange="toggleWorkspaceRepository(\'' + id + '\', this.checked)"> ' +
+            (isBase ? "Базовый слой всегда включён" : "Включить overlay") + '</label>' +
+            '<span class="aw-repo-stats">' + count + ' кандидатов</span></div>' +
+            '<div class="aw-repo-actions"><a class="aw-candidate-source" href="' + workspaceEscape(repo.repo_url) +
+            '" target="_blank" rel="noopener noreferrer">Открыть GitHub ↗</a>' +
+            '<button class="btn btn-secondary" onclick="scanWorkspaceRepository(\'' + id + '\')">Сканировать</button></div>' +
+            '</article>';
+    }).join("");
+}
+
+function renderWorkspaceCandidates(candidates) {
+    const root = document.getElementById("workspaceCandidates");
+    if (!root) return;
+    if (!candidates.length) {
+        root.innerHTML = '<div class="aw-empty-inline">Сканирование ещё не обнаружило навыков или UI-модулей.</div>';
+        return;
+    }
+    root.innerHTML = candidates.map(item => {
+        const active = !!item.is_active;
+        const enabled = !!item.repository_enabled;
+        const flags = Array.isArray(item.risk_flags) ? item.risk_flags : [];
+        const reviewNeeded = flags.length > 0 || item.manifest_state === "manifest_review";
+        const id = workspaceEscape(item.id);
+        return '<article class="aw-candidate"><div class="aw-candidate-head"><div>' +
+            '<div class="aw-candidate-title">' + workspaceEscape(item.name) + '</div>' +
+            '<div class="aw-candidate-desc">' + workspaceEscape(item.description) + '</div>' +
+            '</div><span class="aw-candidate-kind">' + workspaceEscape(String(item.kind).toUpperCase()) + '</span></div>' +
+            '<div class="aw-candidate-desc">' + workspaceEscape(item.repository_name) + ' · ' + workspaceEscape(item.path) +
+            ' · confidence ' + Math.round(Number(item.confidence || 0) * 100) + '%</div>' +
+            '<a class="aw-candidate-source" href="' + workspaceEscape(item.source_url) + '" target="_blank" rel="noopener noreferrer">Проверить исходник ↗</a>' +
+            '<div class="aw-candidate-footer"><span class="' + (reviewNeeded ? "aw-risk" : "aw-repo-stats") + '">' +
+            (reviewNeeded ? "ТРЕБУЕТСЯ РУЧНАЯ ПРОВЕРКА" : workspaceEscape(item.manifest_state)) + '</span>' +
+            '<button class="btn ' + (active ? "btn-primary" : "btn-secondary") + '" ' + (enabled ? "" : "disabled ") +
+            'onclick="toggleWorkspaceCandidate(\'' + id + '\', ' + (!active) + ', ' + reviewNeeded + ')">' +
+            (active ? "Отключить" : "Активировать") + '</button></div></article>';
+    }).join("");
+}
+
+async function addWorkspaceRepository() {
+    const input = document.getElementById("workspaceRepositoryUrl");
+    const url = (input && input.value || "").trim();
+    if (!url) return;
+    setWorkspaceStatus("Проверка GitHub и сканирование…");
+    try {
+        await workspaceApi("/api/workspace/repositories", {
+            method: "POST",
+            body: JSON.stringify({ url })
+        });
+        if (input) input.value = "";
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function toggleWorkspaceRepository(repositoryId, enabled) {
+    try {
+        await workspaceApi("/api/workspace/repositories/" + encodeURIComponent(repositoryId), {
+            method: "PATCH",
+            body: JSON.stringify({ enabled })
+        });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+        await loadWorkspaceData();
+    }
+}
+
+async function scanWorkspaceRepository(repositoryId) {
+    setWorkspaceStatus("Сканирование дерева репозитория…");
+    try {
+        await workspaceApi("/api/workspace/repositories/" + encodeURIComponent(repositoryId) + "/scan", { method: "POST" });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function toggleWorkspaceCandidate(candidateId, enabled, reviewNeeded) {
+    let confirmReview = false;
+    if (enabled) {
+        const reviewMessage = reviewNeeded
+            ? "У источника есть маркеры риска или неполный манифест. Откройте ссылку на GitHub, проверьте содержимое и подтвердите активацию."
+            : "Перед активацией откройте ссылку на GitHub и проверьте содержимое источника. Подтверждаете, что проверили его?";
+        confirmReview = window.confirm(reviewMessage);
+        if (!confirmReview) return;
+    }
+    try {
+        await workspaceApi("/api/workspace/candidates/" + encodeURIComponent(candidateId), {
+            method: "PATCH",
+            body: JSON.stringify({ enabled, confirm_review: confirmReview })
+        });
+        await loadWorkspaceData();
+    } catch (error) {
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+async function buildWorkspacePipeline() {
+    const input = document.getElementById("workspaceGoal");
+    const goal = (input && input.value || "").trim();
+    const root = document.getElementById("workspacePipeline");
+    if (!goal || !root) return;
+    root.innerHTML = '<div class="aw-empty-inline">Анализ запроса и поиск по активным источникам…</div>';
+    try {
+        const result = await workspaceApi("/api/workspace/pipeline", {
+            method: "POST",
+            body: JSON.stringify({ goal })
+        });
+        const stages = result.pipeline || [];
+        const cards = stages.map(stage => {
+            const selected = stage.selected || [];
+            const title = String(stage.stage || "").replace(/_/g, " ").toUpperCase();
+            return '<article class="aw-pipeline-stage"><strong>' + workspaceEscape(title) + '</strong>' +
+                '<p>' + workspaceEscape(stage.detail || (selected.length + " подтверждённых совпадений")) + '</p>' +
+                (selected.length ? selected.map(item => '<p>↳ ' + workspaceEscape(item.name) +
+                    ' · ' + Math.round(Number(item.confidence || 0) * 100) + '% · <a class="aw-candidate-source" href="' +
+                    workspaceEscape(item.source_url) + '" target="_blank" rel="noopener noreferrer">source ↗</a></p>').join("") : "") +
+                '</article>';
+        }).join("");
+        const empty = result.status === "no_active_match" ?
+            '<div class="aw-empty-inline">' + workspaceEscape(result.message) + '</div>' : "";
+        const retrievalLabel = result.retrieval_mode === "hybrid_vector"
+            ? "HYBRID VECTOR RAG"
+            : "LEXICAL FALLBACK";
+        root.innerHTML = '<div class="aw-candidate-desc">Pipeline status: <strong>' +
+            workspaceEscape(String(result.status || "").toUpperCase()) +
+            '</strong> · Retrieval: <strong>' + retrievalLabel + '</strong></div>' + cards + empty;
+        const runButton = document.getElementById("workspaceRunButton");
+        if (runButton) runButton.disabled = false;
+        setWorkspaceStatus("Pipeline собран. Можно запускать OpenManus.");
+    } catch (error) {
+        root.innerHTML = '<div class="aw-empty-inline">' + workspaceEscape(error.message) + '</div>';
+        setWorkspaceStatus(error.message, true);
+    }
+}
+
+
+async function executeWorkspaceTask() {
+    const input = document.getElementById("workspaceGoal");
+    const goal = (input && input.value || "").trim();
+    const output = document.getElementById("workspaceExecution");
+    const button = document.getElementById("workspaceRunButton");
+    if (!goal || !output) return;
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "OpenManus выполняет задачу…";
+    }
+    output.textContent = "Передача задачи в отдельный OpenManus runtime…";
+
+    try {
+        const result = await workspaceApi("/api/workspace/execute", {
+            method: "POST",
+            body: JSON.stringify({ goal })
+        });
+        // Agent output is untrusted text: render as text, never as HTML.
+        output.textContent =
+            "[Retrieval: " + String(result.retrieval_mode || "base_only") + "]\n\n" +
+            (result.summary || "OpenManus вернул пустой результат.");
+        setWorkspaceStatus("OpenManus завершил выполнение");
+    } catch (error) {
+        output.textContent = error.message;
+        setWorkspaceStatus(error.message, true);
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Выполнить в OpenManus";
+        }
     }
 }
