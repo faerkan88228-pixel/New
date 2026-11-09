@@ -124,6 +124,10 @@ async function runAgentTask() {
     const input = document.getElementById("agentPromptInput");
     const goal = input.value.trim();
     if (!goal) return;
+    if (!workspaceAdminToken) {
+        addChatMessage("assistant", "Сначала подключите Agentic Workspace и введите admin token.");
+        return;
+    }
 
     addChatMessage("user", goal);
     input.value = "";
@@ -138,7 +142,10 @@ async function runAgentTask() {
     try {
         const resp = await fetch("/api/agent/task", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                "X-Workspace-Admin": workspaceAdminToken
+            },
             body: JSON.stringify({ goal, session_id: "default" })
         });
         const data = await resp.json();
