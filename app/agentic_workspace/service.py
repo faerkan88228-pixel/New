@@ -654,6 +654,11 @@ async def execute_workspace_pipeline(
     return await manus_agent.run_task("agentic-workspace", request.goal)
 
 
+async def get_agent_runtime_bundle(goal: str) -> dict[str, Any]:
+    """Return selected capabilities, verified source contexts, and retrieval mode."""
+    return await workspace_service.runtime_bundle(goal)
+
+
 async def get_agent_runtime_capabilities(goal: str) -> list[dict[str, Any]]:
     """Return metadata for active capabilities from enabled repository overlays."""
     return await workspace_service.runtime_capabilities(goal)
