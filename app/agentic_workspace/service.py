@@ -366,8 +366,38 @@ class AgenticWorkspaceService:
         if not row:
             raise HTTPException(status_code=404, detail="Репозиторий не найден.")
         try:
-            metadata, branch, candidates = await self.scanner.scan(row["repo_full_name"], row.get("default_branch"))
-            stored = await self.store.replace_candidates(repository_id, [{"repository_id": repository_id, **item} for item in candidates])
+            metadata, branch, candidates = await self.scanner.scan(
+                row["repo_full_name"], row.get("default_branch")
+            )
+            if self.embeddings.configured:
+                import asyncio
+
+                semaphore = asyncio.Semaphore(4)
+
+                async def embed_candidate(item: dict[str, Any]) -> dict[str, Any]:
+                    async with semaphore:
+                        embedding = await self.embeddings.embed_text(
+                            item.pop("_embedding_text", ""),
+                            task_type="RETRIEVAL_DOCUMENT",
+                        )
+                    item["embedding"] = embedding
+                    item["embedding_model"] = EMBEDDING_MODEL
+                    item["embedding_source_sha"] = item["source_sha"]
+                    return item
+
+                candidates = await asyncio.gather(
+                    *(embed_candidate(item) for item in candidates)
+                )
+            else:
+                for item in candidates:
+                    item.pop("_embedding_text", None)
+                    item["embedding"] = None
+                    item["embedding_model"] = None
+                    item["embedding_source_sha"] = None
+            stored = await self.store.replace_candidates(
+                repository_id,
+                [{"repository_id": repository_id, **item} for item in candidates],
+            )
             updated = await self.store.update_repository(repository_id, {
                 "default_branch": branch, "scan_status": "completed",
                 "scan_sha": metadata.get("_tree_sha", ""),
