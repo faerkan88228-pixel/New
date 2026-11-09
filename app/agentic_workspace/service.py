@@ -1,6 +1,7 @@
 """Repository overlays and natural-language skill routing for Agentic Workspace."""
 from __future__ import annotations
 
+import hashlib
 import hmac
 import os
 import re
@@ -16,6 +17,9 @@ BASE_REPOSITORY = "faerkan88228-pixel/OpenManus"
 GITHUB_API = "https://api.github.com"
 MAX_FILE_BYTES = 48000
 MAX_SCAN_CANDIDATES = 60
+MAX_RUNTIME_CONTEXTS = 8
+MAX_RUNTIME_CONTEXT_CHARS = 12000
+MAX_RUNTIME_TOTAL_CHARS = 32000
 UI_EXTENSIONS = {".tsx", ".jsx", ".vue", ".svelte", ".css", ".scss"}
 UI_DIRS = {"ui", "components", "component", "design-system", "themes", "theme", "styles", "screens"}
 SKILL_DIRS = {"skills", ".agents", ".claude"}
@@ -288,6 +292,12 @@ class GitHubScanner:
         return metadata, selected_branch, [item for item in built if item]
 
 
+def git_blob_sha1(content: str) -> str:
+    raw = content.encode("utf-8")
+    header = f"blob {len(raw)}\\0".encode("ascii")
+    return hashlib.sha1(header + raw).hexdigest()
+
+
 class AgenticWorkspaceService:
     def __init__(self) -> None:
         self.store = SupabaseStore()
@@ -332,6 +342,52 @@ class AgenticWorkspaceService:
                     "matched_terms": matched,
                 })
         return sorted(matches, key=lambda item: item["confidence"], reverse=True)[:12]
+
+
+    async def runtime_contexts(self, goal: str) -> list[dict[str, Any]]:
+        """Load only active, enabled, source-integrity-verified skill/UI references."""
+        repositories = await self.store.list_repositories()
+        enabled = {row["id"]: row for row in repositories if row.get("enabled")}
+        ranked: list[tuple[float, dict[str, Any], dict[str, Any]]] = []
+        for repository_id, repository in enabled.items():
+            for candidate in await self.store.list_candidates(repository_id):
+                if not candidate.get("is_active"):
+                    continue
+                score, matched = score_candidate(goal, candidate)
+                if score >= 0.06:
+                    ranked.append((score, candidate, repository))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+
+        contexts: list[dict[str, Any]] = []
+        total_chars = 0
+        for _, candidate, repository in ranked:
+            if len(contexts) >= MAX_RUNTIME_CONTEXTS:
+                break
+            try:
+                content = await self.scanner.read_file(
+                    repository["repo_full_name"],
+                    repository["default_branch"],
+                    candidate["path"],
+                )
+            except HTTPException as exc:
+                if exc.status_code == 404:
+                    continue
+                raise
+            if git_blob_sha1(content) != candidate.get("source_sha"):
+                # The file changed after review/activation. It must be rescanned and reviewed.
+                continue
+            content_size = len(content.encode("utf-8"))
+            if content_size > MAX_RUNTIME_CONTEXT_CHARS or total_chars + content_size > MAX_RUNTIME_TOTAL_CHARS:
+                continue
+            contexts.append({
+                "kind": candidate["kind"],
+                "name": candidate["name"],
+                "source_url": candidate["source_url"],
+                "source_sha": candidate["source_sha"],
+                "content": content,
+            })
+            total_chars += content_size
+        return contexts
 
 
 workspace_service = AgenticWorkspaceService()
