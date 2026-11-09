@@ -1,20 +1,22 @@
 -- Semantic skill/UI retrieval using Gemini Embeddings + Supabase pgvector.
 -- Requires the Agentic Workspace base migration 202611090001_agentic_workspace.sql.
 
+create schema if not exists extensions;
 create extension if not exists vector with schema extensions;
+set search_path = public, extensions;
 
 alter table public.agent_overlay_candidates
-    add column if not exists embedding extensions.vector(768),
+    add column if not exists embedding vector(768),
     add column if not exists embedding_model text,
     add column if not exists embedding_source_sha text;
 
 create index if not exists agent_overlay_candidates_embedding_hnsw
     on public.agent_overlay_candidates
-    using hnsw (embedding extensions.vector_cosine_ops)
+    using hnsw (embedding vector_cosine_ops)
     where embedding is not null;
 
 create or replace function public.match_agent_overlay_candidates(
-    query_embedding extensions.vector(768),
+    query_embedding vector(768),
     match_count integer default 12,
     filter_repository_ids uuid[] default null
 )
@@ -70,9 +72,9 @@ as $$
 $$;
 
 revoke all on function public.match_agent_overlay_candidates(
-    extensions.vector(768), integer, uuid[]
+    vector(768), integer, uuid[]
 ) from public, anon, authenticated;
 
 grant execute on function public.match_agent_overlay_candidates(
-    extensions.vector(768), integer, uuid[]
+    vector(768), integer, uuid[]
 ) to service_role;
