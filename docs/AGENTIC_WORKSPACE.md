@@ -29,7 +29,7 @@ Apply supabase/migrations/202611090001_agentic_workspace.sql using the Supabase 
 ## Operation
 
 1. Open the Agentic Workspace tab and enter the server-configured workspace admin token.
-2. Scan the fixed OpenManus repository.
+2. On first connection, the workspace automatically scans the fixed OpenManus repository. Use its manual rescan control when you need to refresh it.
 3. Add additional repositories with a GitHub HTTPS URL. The server scans them immediately and records the discovered candidates in Supabase.
 4. Enable or disable each overlay repository. Disabling a repository immediately removes its candidates from natural-language routing while preserving their activation state for later re-enabling.
 5. Open each candidate's GitHub source and explicitly confirm review before activation. Risk markers and incomplete skill frontmatter are highlighted, but every candidate requires confirmation.
@@ -53,3 +53,5 @@ The OpenManus runtime must be deployed from the reviewed runtime branch/PR and c
 The previous keyword-based local planner is no longer used for task execution. The runtime disables OpenManus' in-process Python execution tool by default; enabling it requires a separately isolated worker and explicit server-side opt-in. If the OpenManus runtime is not configured or unreachable, the task endpoint returns an error instead of reporting a simulated success.
 
 The host fetches active skill and UI source files from GitHub at execution time and checks the Git blob SHA against the SHA recorded during scan/review. Changed sources are skipped until rescanned and reactivated. Repository code is not installed, imported, or injected into the browser; reviewed source content is supplied to OpenManus as bounded supplemental reference context.
+
+The current natural-language candidate ranker is deterministic lexical matching (token overlap plus a small phrase bonus), not embedding/vector RAG. The AI Studio URLs shown in the page are reference links only; they are not connected API integrations. A later increment is required for real embedding-based retrieval, Skill Builder draft generation, and direct integrations with those AI Studio apps.
