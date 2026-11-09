@@ -11,6 +11,8 @@ from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
+
+from app.agentic_workspace.embeddings import EMBEDDING_MODEL, GeminiEmbeddingProvider
 from pydantic import BaseModel, Field
 
 BASE_REPOSITORY = "faerkan88228-pixel/OpenManus"
@@ -208,6 +210,38 @@ class SupabaseStore:
             params["repository_id"] = "eq." + repository_id
         return await self.request("GET", "agent_overlay_candidates", params=params)
 
+    async def match_candidates(
+        self, query_embedding: list[float], repository_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        base, key = self._configuration()
+        headers = {
+            "apikey": key,
+            "Authorization": "Bearer " + key,
+            "Content-Type": "application/json",
+        }
+        body = {
+            "query_embedding": query_embedding,
+            "match_count": 20,
+            "filter_repository_ids": repository_ids,
+        }
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
+            response = await client.post(
+                base + "/rest/v1/rpc/match_agent_overlay_candidates",
+                headers=headers,
+                json=body,
+            )
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=502,
+                detail="Supabase vector retrieval failed (" + str(response.status_code) + ").",
+            )
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=502, detail="Supabase vector retrieval returned invalid JSON."
+            ) from exc
+
     async def get_candidate(self, candidate_id: str) -> dict[str, Any] | None:
         rows = await self.request("GET", "agent_overlay_candidates", params={"select": "*", "id": "eq." + candidate_id, "limit": "1"})
         return rows[0] if rows else None
@@ -308,6 +342,7 @@ class GitHubScanner:
                 "source_sha": entry.get("sha", ""), "confidence": confidence,
                 "risk_flags": candidate_risk_flags(content), "manifest_state": manifest_state,
                 "tags": tags, "is_active": False,
+                "_embedding_text": (name + "\\n" + description + "\\n" + path + "\\n" + content[:4000])[:6000],
             }
 
         built = await asyncio.gather(*(inspect(entry, kind) for entry, kind in paths))
@@ -324,6 +359,7 @@ class AgenticWorkspaceService:
     def __init__(self) -> None:
         self.store = SupabaseStore()
         self.scanner = GitHubScanner()
+        self.embeddings = GeminiEmbeddingProvider()
 
     async def scan_repository(self, repository_id: str) -> dict[str, Any]:
         row = await self.store.get_repository(repository_id)
