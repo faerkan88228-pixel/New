@@ -39,9 +39,18 @@ def normalize_github_repository(value: str) -> str:
         owner, name = raw.split("/", 1)
         return owner + "/" + name.removesuffix(".git")
     parsed = urlparse(raw)
-    if parsed.scheme != "https" or parsed.hostname not in {"github.com", "www.github.com"}:
-        raise HTTPException(status_code=422, detail="Разрешены только HTTPS-ссылки github.com.")
-    if parsed.port not in {None, 443} or parsed.query or parsed.fragment:
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname not in {"github.com", "www.github.com"}
+        or parsed.username
+        or parsed.password
+    ):
+        raise HTTPException(status_code=422, detail="Разрешены только HTTPS-ссылки github.com без userinfo.")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Некорректный порт GitHub URL.") from exc
+    if port not in {None, 443} or parsed.query or parsed.fragment:
         raise HTTPException(status_code=422, detail="GitHub должен использовать HTTPS на порту 443 без query-параметров.")
     parts = [part for part in parsed.path.split("/") if part]
     if len(parts) != 2:
@@ -122,8 +131,21 @@ class SupabaseStore:
         base = os.getenv("SUPABASE_URL", "").rstrip("/")
         key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
         parsed = urlparse(base)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.port not in {None, 443}:
-            raise HTTPException(status_code=503, detail="Настройте SUPABASE_URL с HTTPS на порту 443.")
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="Некорректный порт SUPABASE_URL.") from exc
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or port not in {None, 443}
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
+            raise HTTPException(status_code=503, detail="Настройте SUPABASE_URL как HTTPS origin на порту 443.")
         if not key:
             raise HTTPException(status_code=503, detail="Не настроен SUPABASE_SERVICE_ROLE_KEY.")
         return base, key
