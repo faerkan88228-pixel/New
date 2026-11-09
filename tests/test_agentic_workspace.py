@@ -65,5 +65,73 @@ class TestAgenticWorkspaceParsing(unittest.TestCase):
         self.assertEqual(terms, [])
 
 
+class TestRuntimeContextLoading(unittest.IsolatedAsyncioTestCase):
+    async def test_only_enabled_active_and_unchanged_sources_are_loaded(self):
+        from app.agentic_workspace.service import AgenticWorkspaceService, git_blob_sha1
+
+        content = "---\\nname: Mobile UI\\ndescription: Responsive mobile layout\\n---\\nUse a mobile-first layout."
+        stale_content = "Updated source that has not been reviewed."
+        enabled_repo = {
+            "id": "enabled-repo",
+            "repo_full_name": "owner/enabled",
+            "default_branch": "main",
+            "enabled": True,
+        }
+        disabled_repo = {
+            "id": "disabled-repo",
+            "repo_full_name": "owner/disabled",
+            "default_branch": "main",
+            "enabled": False,
+        }
+        valid_candidate = {
+            "id": "candidate-1",
+            "repository_id": "enabled-repo",
+            "kind": "skill",
+            "name": "Mobile UI",
+            "description": "Responsive mobile layout",
+            "path": "skills/mobile/SKILL.md",
+            "source_url": "https://github.com/owner/enabled/blob/main/skills/mobile/SKILL.md",
+            "source_sha": git_blob_sha1(content),
+            "is_active": True,
+            "tags": ["mobile", "responsive"],
+        }
+        stale_candidate = {
+            **valid_candidate,
+            "id": "candidate-2",
+            "path": "skills/mobile/STALE.md",
+            "source_url": "https://github.com/owner/enabled/blob/main/skills/mobile/STALE.md",
+            "source_sha": git_blob_sha1("Previous reviewed version."),
+        }
+        disabled_candidate = {
+            **valid_candidate,
+            "id": "candidate-3",
+            "repository_id": "disabled-repo",
+        }
+
+        class FakeStore:
+            async def list_repositories(self):
+                return [enabled_repo, disabled_repo]
+
+            async def list_candidates(self, repository_id):
+                if repository_id == "enabled-repo":
+                    return [valid_candidate, stale_candidate]
+                return [disabled_candidate]
+
+        class FakeScanner:
+            async def read_file(self, repository, branch, path):
+                if path.endswith("STALE.md"):
+                    return stale_content
+                return content
+
+        service = AgenticWorkspaceService()
+        service.store = FakeStore()
+        service.scanner = FakeScanner()
+
+        contexts = await service.runtime_contexts("create responsive mobile UI")
+        self.assertEqual(len(contexts), 1)
+        self.assertEqual(contexts[0]["source_sha"], git_blob_sha1(content))
+        self.assertEqual(contexts[0]["content"], content)
+
+
 if __name__ == "__main__":
     unittest.main()
