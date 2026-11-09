@@ -485,7 +485,7 @@ async def build_workspace_pipeline(request: PipelineRequest, x_workspace_admin: 
             {"stage": "intent_analysis", "status": "completed", "detail": "Запрос принят и токенизирован."},
             {"stage": "repository_skill_search", "status": "completed", "selected": skills},
             {"stage": "ui_module_search", "status": "completed", "selected": ui_modules},
-            {"stage": "policy_gate", "status": "awaiting_execution", "detail": "Сторонний код не исполняется. Источники передаются агенту как проверяемые ссылки."},
+            {"stage": "policy_gate", "status": "awaiting_execution", "detail": "Перед запуском сервер повторно загружает источники и сверяет Git blob SHA; содержимое передаётся OpenManus как ограниченный контекст. Код overlay не устанавливается и не исполняется напрямую."},
         ],
         "selected_skills": skills, "selected_ui_modules": ui_modules,
         "message": "Найдены активные возможности." if capabilities else "Нет активированных возможностей, релевантных запросу. Включите overlay и активируйте подходящие элементы.",
