@@ -831,10 +831,23 @@ async function connectWorkspace() {
 async function loadWorkspaceData() {
     setWorkspaceStatus("Загрузка облачной конфигурации…");
     try {
-        const responses = await Promise.all([
+        let responses = await Promise.all([
             workspaceApi("/api/workspace/repositories"),
             workspaceApi("/api/workspace/candidates")
         ]);
+        const baseRepository = (responses[0].repositories || []).find(item => item.is_base);
+        if (baseRepository && !baseRepository.scan_sha &&
+            ["not_scanned", "queued"].includes(baseRepository.scan_status)) {
+            setWorkspaceStatus("Первичное сканирование базового OpenManus…");
+            await workspaceApi(
+                "/api/workspace/repositories/" + encodeURIComponent(baseRepository.id) + "/scan",
+                { method: "POST" }
+            );
+            responses = await Promise.all([
+                workspaceApi("/api/workspace/repositories"),
+                workspaceApi("/api/workspace/candidates")
+            ]);
+        }
         renderWorkspaceRepositories(responses[0].repositories || []);
         renderWorkspaceCandidates(responses[1].candidates || []);
         setWorkspaceStatus("Cloud state синхронизирован");
