@@ -40,13 +40,18 @@ app = FastAPI(
     description="Unified Autonomous Agent, Qwen3-TTS Voice Studio, and Android Commander Platform"
 )
 
-# Enable CORS for preview environment
+# CORS is same-origin by default. Add trusted HTTPS front-end origins explicitly.
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Workspace-Admin"],
 )
 
 # Mount static files
