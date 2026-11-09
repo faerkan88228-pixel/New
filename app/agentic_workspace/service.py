@@ -342,7 +342,7 @@ class GitHubScanner:
                 "source_sha": entry.get("sha", ""), "confidence": confidence,
                 "risk_flags": candidate_risk_flags(content), "manifest_state": manifest_state,
                 "tags": tags, "is_active": False,
-                "_embedding_text": (name + "\\n" + description + "\\n" + path + "\\n" + content[:4000])[:6000],
+                "_embedding_text": (name + "\\n" + description + "\\n" + path + "\\n" + content[:1800])[:3000],
             }
 
         built = await asyncio.gather(*(inspect(entry, kind) for entry, kind in paths))
