@@ -493,5 +493,10 @@ async def build_workspace_pipeline(request: PipelineRequest, x_workspace_admin: 
 
 
 async def get_agent_runtime_capabilities(goal: str) -> list[dict[str, Any]]:
-    """Internal runtime entrypoint; cloud errors must not stop the fixed base agent."""
+    """Return metadata for active capabilities from enabled repository overlays."""
     return await workspace_service.runtime_capabilities(goal)
+
+
+async def get_agent_runtime_contexts(goal: str) -> list[dict[str, Any]]:
+    """Return source-integrity-verified content for the real OpenManus runtime."""
+    return await workspace_service.runtime_contexts(goal)
