@@ -32,7 +32,7 @@ Apply supabase/migrations/202611090001_agentic_workspace.sql using the Supabase 
 2. Scan the fixed OpenManus repository.
 3. Add additional repositories with a GitHub HTTPS URL. The server scans them immediately and records the discovered candidates in Supabase.
 4. Enable or disable each overlay repository. Disabling a repository immediately removes its candidates from natural-language routing while preserving their activation state for later re-enabling.
-5. Activate individual candidates only after reviewing their source URL. Candidates with risk markers or incomplete skill frontmatter require explicit review confirmation.
+5. Open each candidate's GitHub source and explicitly confirm review before activation. Risk markers and incomplete skill frontmatter are highlighted, but every candidate requires confirmation.
 6. Enter a natural-language task and build the pipeline. The response reports matched skills, UI modules, source links, and the policy gate.
 
 ## Original OpenManus runtime
@@ -50,6 +50,6 @@ The OpenManus runtime must be deployed from the reviewed runtime branch/PR and c
 
 ## Execution boundary
 
-The previous keyword-based local planner is no longer used for task execution. If the OpenManus runtime is not configured or unreachable, the task endpoint returns an error instead of reporting a simulated success.
+The previous keyword-based local planner is no longer used for task execution. The runtime disables OpenManus' in-process Python execution tool by default; enabling it requires a separately isolated worker and explicit server-side opt-in. If the OpenManus runtime is not configured or unreachable, the task endpoint returns an error instead of reporting a simulated success.
 
 The host fetches active skill and UI source files from GitHub at execution time and checks the Git blob SHA against the SHA recorded during scan/review. Changed sources are skipped until rescanned and reactivated. Repository code is not installed, imported, or injected into the browser; reviewed source content is supplied to OpenManus as bounded supplemental reference context.
