@@ -57,6 +57,8 @@ as $$
     inner join public.agent_repository_overlays as repository
         on repository.id = candidate.repository_id
     where candidate.embedding is not null
+      and candidate.embedding_model = 'gemini-embedding-001'
+      and candidate.embedding_source_sha = candidate.source_sha
       and candidate.is_active = true
       and repository.enabled = true
       and (
