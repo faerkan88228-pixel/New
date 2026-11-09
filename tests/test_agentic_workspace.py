@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 from app.agentic_workspace.service import (
     candidate_risk_flags,
+    git_blob_sha1,
     normalize_github_repository,
     parse_skill_frontmatter,
     score_candidate,
@@ -48,6 +49,12 @@ class TestAgenticWorkspaceParsing(unittest.TestCase):
         )
         self.assertGreater(score, 0.06)
         self.assertIn("адаптивный", terms)
+
+    def test_git_blob_sha_matches_github_blob_hash(self):
+        self.assertEqual(
+            git_blob_sha1("hello\\n"),
+            "ce013625030ba8dba906f756967f9e9ca394464a",
+        )
 
     def test_irrelevant_candidate_has_zero_score(self):
         score, terms = score_candidate(
