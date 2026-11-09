@@ -468,8 +468,8 @@ async def toggle_workspace_candidate(candidate_id: str, request: CandidateToggle
     repository = await workspace_service.store.get_repository(candidate["repository_id"])
     if not repository or not repository.get("enabled"):
         raise HTTPException(status_code=409, detail="Сначала включите репозиторий-источник.")
-    if request.enabled and (candidate.get("risk_flags") or candidate.get("manifest_state") == "manifest_review") and not request.confirm_review:
-        raise HTTPException(status_code=409, detail="Исходник требует ручной проверки. Просмотрите файл и подтвердите проверку.")
+    if request.enabled and not request.confirm_review:
+        raise HTTPException(status_code=409, detail="Перед активацией откройте исходный файл, проверьте его и подтвердите проверку.")
     return {"candidate": await workspace_service.store.update_candidate(candidate_id, {"is_active": request.enabled})}
 
 
