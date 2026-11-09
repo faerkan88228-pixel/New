@@ -2,9 +2,9 @@
 
 ## What this adds
 
-- OpenManus is the fixed base agent: \`faerkan88228-pixel/OpenManus\`.
+- OpenManus is the fixed base agent: faerkan88228-pixel/OpenManus.
 - Additional GitHub repositories are optional overlays and can be enabled or disabled without changing the base repository.
-- A scanner reads real GitHub repository metadata and the Git tree, then inspects candidate \`SKILL.md\` files and UI source files.
+- A scanner reads real GitHub repository metadata and the Git tree, then inspects candidate SKILL.md files and UI source files.
 - The natural-language router ranks only discovered, enabled, manually activated candidates. It returns source paths and relevance evidence.
 - Repository code is never imported, installed, evaluated, or executed by the scanner. UI modules are references for a reviewed integration/build step, not browser-side remote code.
 
@@ -12,22 +12,19 @@
 
 Set these environment variables in the application hosting environment:
 
-- \`SUPABASE_URL=https://<project-ref>.supabase.co\`
-- \`SUPABASE_SERVICE_ROLE_KEY=<server-only service role key>\`
-- \`WORKSPACE_ADMIN_TOKEN=<long random admin secret>\`
-- \`GITHUB_TOKEN=<read-only GitHub token>\` (recommended for private repositories and API rate limits)
+- SUPABASE_URL=https://<project-ref>.supabase.co
+- SUPABASE_SERVICE_ROLE_KEY=<server-only service role key>
+- WORKSPACE_ADMIN_TOKEN=<long random admin secret>
+- GITHUB_TOKEN=<read-only GitHub token> (recommended for private repositories and API rate limits)
+- CORS_ALLOWED_ORIGINS=https://<trusted-app-domain> (only when the browser UI is hosted on a different origin; same-origin is the default)
 
-Do not place any of these values in HTML, JavaScript, source control, or browser storage. The browser receives only \`WORKSPACE_ADMIN_TOKEN\` entered for the current page session; Supabase and GitHub credentials remain server-side.
+Do not place any of these values in HTML, JavaScript, source control, or browser storage. The browser receives only WORKSPACE_ADMIN_TOKEN entered for the current page session; Supabase and GitHub credentials remain server-side.
 
 All outbound service URLs must use HTTPS on port 443. The app must be deployed behind a TLS reverse proxy on port 443; do not expose the FastAPI development port directly to the public internet.
 
 ## Database migration
 
-Apply:
-
-\`supabase/migrations/202611090001_agentic_workspace.sql\`
-
-using the Supabase SQL editor or the project's managed migration process. The migration creates the overlay and candidate tables, enables RLS without public policies, and seeds the fixed OpenManus base row.
+Apply supabase/migrations/202611090001_agentic_workspace.sql using the Supabase SQL editor or the project's managed migration process. The migration creates the overlay and candidate tables, enables RLS without public policies, and seeds the fixed OpenManus base row.
 
 ## Operation
 
