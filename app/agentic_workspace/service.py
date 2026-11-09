@@ -411,46 +411,94 @@ class AgenticWorkspaceService:
             raise
         return {"repository": updated or row, "candidates": stored, "scan_count": len(stored)}
 
-    async def runtime_capabilities(self, goal: str) -> list[dict[str, Any]]:
+    async def ranked_candidates(
+        self, goal: str
+    ) -> tuple[list[tuple[float, dict[str, Any], list[str], float]], str]:
         repositories = await self.store.list_repositories()
-        enabled_ids = [row["id"] for row in repositories if row.get("enabled")]
+        enabled = {
+            row["id"]: row
+            for row in repositories
+            if row.get("enabled")
+        }
         all_rows: list[dict[str, Any]] = []
-        for repository_id in enabled_ids:
+        for repository_id in enabled:
             all_rows.extend(await self.store.list_candidates(repository_id))
-        matches = []
-        for row in all_rows:
-            if not row.get("is_active"):
-                continue
-            score, matched = score_candidate(goal, row)
-            if score >= 0.06:
-                matches.append({
-                    "id": row["id"], "kind": row["kind"], "name": row["name"],
-                    "description": row["description"], "path": row["path"],
-                    "source_url": row["source_url"], "confidence": round(min(0.99, score), 3),
-                    "matched_terms": matched,
-                })
-        return sorted(matches, key=lambda item: item["confidence"], reverse=True)[:12]
+        active_rows = {
+            row["id"]: row
+            for row in all_rows
+            if row.get("is_active")
+        }
 
-
-    async def runtime_contexts(self, goal: str) -> list[dict[str, Any]]:
-        """Load only active, enabled, source-integrity-verified skill/UI references."""
-        repositories = await self.store.list_repositories()
-        enabled = {row["id"]: row for row in repositories if row.get("enabled")}
-        ranked: list[tuple[float, dict[str, Any], dict[str, Any]]] = []
-        for repository_id, repository in enabled.items():
-            for candidate in await self.store.list_candidates(repository_id):
-                if not candidate.get("is_active"):
+        ranked: list[tuple[float, dict[str, Any], list[str], float]] = []
+        retrieval_mode = "lexical_fallback"
+        if self.embeddings.configured and enabled:
+            query_embedding = await self.embeddings.embed_text(
+                goal,
+                task_type="RETRIEVAL_QUERY",
+            )
+            vector_matches = await self.store.match_candidates(
+                query_embedding,
+                list(enabled),
+            )
+            for vector_match in vector_matches:
+                row = active_rows.get(vector_match["id"])
+                if not row:
                     continue
-                score, matched = score_candidate(goal, candidate)
-                if score >= 0.06:
-                    ranked.append((score, candidate, repository))
-        ranked.sort(key=lambda item: item[0], reverse=True)
+                lexical_score, matched_terms = score_candidate(goal, row)
+                semantic_score = max(
+                    0.0,
+                    min(1.0, float(vector_match.get("similarity", 0.0))),
+                )
+                combined_score = min(
+                    0.99,
+                    (0.8 * semantic_score) + (0.2 * lexical_score),
+                )
+                if combined_score >= 0.18:
+                    ranked.append(
+                        (combined_score, row, matched_terms, semantic_score)
+                    )
+            if ranked:
+                retrieval_mode = "hybrid_vector"
 
+        if not ranked:
+            for row in active_rows.values():
+                score, matched_terms = score_candidate(goal, row)
+                if score >= 0.06:
+                    ranked.append((score, row, matched_terms, 0.0))
+
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return ranked[:20], retrieval_mode
+
+    async def runtime_bundle(self, goal: str) -> dict[str, Any]:
+        ranked, retrieval_mode = await self.ranked_candidates(goal)
+        capabilities = []
+        for score, row, matched_terms, semantic_score in ranked[:12]:
+            capabilities.append({
+                "id": row["id"],
+                "kind": row["kind"],
+                "name": row["name"],
+                "description": row["description"],
+                "path": row["path"],
+                "source_url": row["source_url"],
+                "confidence": round(min(0.99, score), 3),
+                "semantic_similarity": round(semantic_score, 4),
+                "matched_terms": matched_terms,
+            })
+
+        repositories = await self.store.list_repositories()
+        enabled = {
+            row["id"]: row
+            for row in repositories
+            if row.get("enabled")
+        }
         contexts: list[dict[str, Any]] = []
         total_chars = 0
-        for _, candidate, repository in ranked:
+        for _, candidate, _, _ in ranked:
             if len(contexts) >= MAX_RUNTIME_CONTEXTS:
                 break
+            repository = enabled.get(candidate["repository_id"])
+            if not repository:
+                continue
             try:
                 content = await self.scanner.read_file(
                     repository["repo_full_name"],
@@ -465,7 +513,10 @@ class AgenticWorkspaceService:
                 # The file changed after review/activation. It must be rescanned and reviewed.
                 continue
             content_size = len(content.encode("utf-8"))
-            if content_size > MAX_RUNTIME_CONTEXT_CHARS or total_chars + content_size > MAX_RUNTIME_TOTAL_CHARS:
+            if (
+                content_size > MAX_RUNTIME_CONTEXT_CHARS
+                or total_chars + content_size > MAX_RUNTIME_TOTAL_CHARS
+            ):
                 continue
             contexts.append({
                 "kind": candidate["kind"],
@@ -475,7 +526,20 @@ class AgenticWorkspaceService:
                 "content": content,
             })
             total_chars += content_size
-        return contexts
+
+        return {
+            "capabilities": capabilities,
+            "contexts": contexts,
+            "retrieval_mode": retrieval_mode,
+        }
+
+    async def runtime_capabilities(self, goal: str) -> list[dict[str, Any]]:
+        bundle = await self.runtime_bundle(goal)
+        return bundle["capabilities"]
+
+    async def runtime_contexts(self, goal: str) -> list[dict[str, Any]]:
+        bundle = await self.runtime_bundle(goal)
+        return bundle["contexts"]
 
 
 workspace_service = AgenticWorkspaceService()
