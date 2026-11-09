@@ -23,6 +23,8 @@ def runtime_endpoint() -> tuple[str, str]:
             and not parsed.fragment
             and not parsed.username
             and not parsed.password
+            and not parsed.username
+            and not parsed.password
         )
     except ValueError:
         valid = False
