@@ -560,7 +560,13 @@
                     </div>
                     <label class="aw-field-label" for="workspaceGoal">Опишите задачу обычным языком</label>
                     <textarea id="workspaceGoal" rows="5" placeholder="Например: создай мобильный интерфейс для фракции Прометей, подключи дизайн-систему и проверь адаптивность..."></textarea>
-                    <button class="btn btn-primary aw-build-button" onclick="buildWorkspacePipeline()">Анализировать и собрать pipeline</button>
+                    <div class="aw-action-row">
+                        <button class="btn btn-primary aw-build-button" onclick="buildWorkspacePipeline()">Анализировать и собрать pipeline</button>
+                        <button class="btn btn-secondary aw-build-button" id="workspaceRunButton" onclick="executeWorkspaceTask()" disabled>Выполнить в OpenManus</button>
+                    </div>
+                    <div id="workspaceExecution" class="aw-pipeline-result" aria-live="polite">
+                        <div class="aw-empty-inline">Результат выполнения появится здесь после запуска.</div>
+                    </div>
                     <div id="workspacePipeline" class="aw-pipeline-result">
                         <div class="aw-empty-inline">Pipeline появится после анализа запроса и активных возможностей.</div>
                     </div>
