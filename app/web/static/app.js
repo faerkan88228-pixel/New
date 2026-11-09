@@ -1063,7 +1063,7 @@ async function executeWorkspaceTask() {
         });
         // Agent output is untrusted text: render as text, never as HTML.
         output.textContent =
-            "[Retrieval: " + String(result.retrieval_mode || "base_only") + "]\\n\\n" +
+            "[Retrieval: " + String(result.retrieval_mode || "base_only") + "]\n\n" +
             (result.summary || "OpenManus вернул пустой результат.");
         setWorkspaceStatus("OpenManus завершил выполнение");
     } catch (error) {
