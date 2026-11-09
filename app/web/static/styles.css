@@ -589,3 +589,8 @@ canvas#waveformCanvas {
 @media (max-width: 640px) {
   .aw-action-row { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+.message-bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-step-tool { margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+.agent-step-result { margin-top: 4px; color: var(--accent-cyan); font-size: 12px; overflow-wrap: anywhere; }
