@@ -1027,8 +1027,12 @@ async function buildWorkspacePipeline() {
         }).join("");
         const empty = result.status === "no_active_match" ?
             '<div class="aw-empty-inline">' + workspaceEscape(result.message) + '</div>' : "";
+        const retrievalLabel = result.retrieval_mode === "hybrid_vector"
+            ? "HYBRID VECTOR RAG"
+            : "LEXICAL FALLBACK";
         root.innerHTML = '<div class="aw-candidate-desc">Pipeline status: <strong>' +
-            workspaceEscape(String(result.status || "").toUpperCase()) + '</strong></div>' + cards + empty;
+            workspaceEscape(String(result.status || "").toUpperCase()) +
+            '</strong> · Retrieval: <strong>' + retrievalLabel + '</strong></div>' + cards + empty;
         const runButton = document.getElementById("workspaceRunButton");
         if (runButton) runButton.disabled = false;
         setWorkspaceStatus("Pipeline собран. Можно запускать OpenManus.");
@@ -1058,7 +1062,9 @@ async function executeWorkspaceTask() {
             body: JSON.stringify({ goal })
         });
         // Agent output is untrusted text: render as text, never as HTML.
-        output.textContent = result.summary || "OpenManus вернул пустой результат.";
+        output.textContent =
+            "[Retrieval: " + String(result.retrieval_mode || "base_only") + "]\\n\\n" +
+            (result.summary || "OpenManus вернул пустой результат.");
         setWorkspaceStatus("OpenManus завершил выполнение");
     } catch (error) {
         output.textContent = error.message;
