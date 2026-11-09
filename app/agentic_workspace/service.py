@@ -11,9 +11,9 @@ from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, Field
 
 from app.agentic_workspace.embeddings import EMBEDDING_MODEL, GeminiEmbeddingProvider
-from pydantic import BaseModel, Field
 
 BASE_REPOSITORY = "faerkan88228-pixel/OpenManus"
 GITHUB_API = "https://api.github.com"
