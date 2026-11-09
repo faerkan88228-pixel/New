@@ -100,6 +100,11 @@ function handleAgentEvent(data) {
     if (event_type === "step_start" || event_type === "step_completed") {
         updateTimelineStep(payload);
     }
+
+    if (event_type === "skills_selected" && Array.isArray(payload.capabilities)) {
+        const names = payload.capabilities.map(item => item.name).filter(Boolean);
+        appendFeed("progress", "[SKILL ROUTER] " + (names.join(" · ") || "No named capabilities"));
+    }
 }
 
 function appendFeed(channel, text) {
