@@ -24,7 +24,7 @@ class GeminiEmbeddingProvider:
         api_key: str | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        self.api_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")
+        self.api_key = (api_key if api_key is not None else os.getenv("GEMINI_API_KEY", "")).strip()
         self.transport = transport
 
     @property
@@ -43,8 +43,8 @@ class GeminiEmbeddingProvider:
             )
         if task_type not in ALLOWED_TASK_TYPES:
             raise HTTPException(status_code=422, detail="Unsupported Gemini embedding task type.")
-        if not text or not text.strip() or len(text) > 12_000:
-            raise HTTPException(status_code=422, detail="Embedding text is empty or exceeds 12,000 characters.")
+        if not text or not text.strip() or len(text) > 3_000:
+            raise HTTPException(status_code=422, detail="Embedding text is empty or exceeds 3,000 characters.")
 
         try:
             async with httpx.AsyncClient(
