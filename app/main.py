@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from app.agent.channels import global_event_bus, AgentEvent
 from app.agent.manus_core import manus_agent
+from app.agentic_workspace.service import _require_admin
 from app.agent.memory import memory_manager
 from app.agent.voice_agent import voice_agent
 from app.android.bridge import android_bridge
@@ -149,7 +150,11 @@ class AgentTaskRequest(BaseModel):
 
 
 @app.post("/api/agent/task")
-async def run_agent_task(req: AgentTaskRequest):
+async def run_agent_task(
+    req: AgentTaskRequest,
+    x_workspace_admin: str | None = Header(default=None, alias="X-Workspace-Admin"),
+):
+    _require_admin(x_workspace_admin)
     sess_id = req.session_id or "default"
     result = await manus_agent.run_task(sess_id, req.goal)
     return result
