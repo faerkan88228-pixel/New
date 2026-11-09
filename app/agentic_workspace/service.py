@@ -232,6 +232,7 @@ class GitHubScanner:
         tree = await self.get_json("/repos/" + full_name + "/git/trees/" + quote(selected_branch, safe="/") + "?recursive=1")
         if tree.get("truncated"):
             raise HTTPException(status_code=422, detail="GitHub вернул усечённое дерево: сузьте репозиторий или выделите каталог навыков.")
+        metadata["_tree_sha"] = tree.get("sha", "")
         paths: list[tuple[dict[str, Any], str]] = []
         for entry in tree.get("tree", []):
             path = entry.get("path", "")
@@ -296,13 +297,20 @@ class AgenticWorkspaceService:
         row = await self.store.get_repository(repository_id)
         if not row:
             raise HTTPException(status_code=404, detail="Репозиторий не найден.")
-        metadata, branch, candidates = await self.scanner.scan(row["repo_full_name"], row.get("default_branch"))
-        stored = await self.store.replace_candidates(repository_id, [{"repository_id": repository_id, **item} for item in candidates])
-        updated = await self.store.update_repository(repository_id, {
-            "default_branch": branch, "scan_status": "completed",
-            "scan_sha": metadata.get("pushed_at") or metadata.get("updated_at"),
-            "scan_candidate_count": len(stored), "last_scanned_at": datetime.now(timezone.utc).isoformat(),
-        })
+        try:
+            metadata, branch, candidates = await self.scanner.scan(row["repo_full_name"], row.get("default_branch"))
+            stored = await self.store.replace_candidates(repository_id, [{"repository_id": repository_id, **item} for item in candidates])
+            updated = await self.store.update_repository(repository_id, {
+                "default_branch": branch, "scan_status": "completed",
+                "scan_sha": metadata.get("_tree_sha", ""),
+                "scan_candidate_count": len(stored), "last_scanned_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            try:
+                await self.store.update_repository(repository_id, {"scan_status": "failed"})
+            except Exception:
+                pass
+            raise
         return {"repository": updated or row, "candidates": stored, "scan_count": len(stored)}
 
     async def runtime_capabilities(self, goal: str) -> list[dict[str, Any]]:
