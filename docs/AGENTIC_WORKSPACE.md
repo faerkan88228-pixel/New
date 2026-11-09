@@ -56,4 +56,11 @@ The host fetches active skill and UI source files from GitHub at execution time 
 
 When `GEMINI_API_KEY` is configured, repository scans generate 768-dimensional `gemini-embedding-001` document vectors, store them in Supabase pgvector, and query them with `RETRIEVAL_QUERY` embeddings. The router combines semantic similarity with lexical matching. The pipeline reports `hybrid_vector` when vector candidates are available and `lexical_fallback` when the key is absent or no vectors are indexed. Re-scan repositories after adding the key to populate embeddings.
 
+**Data boundary:** enabling Gemini embeddings sends a bounded text excerpt (up to 3,000 characters, composed from candidate metadata and the start of the source file) to Google's Gemini API. Keep `GEMINI_API_KEY` unset for repositories whose source content must not be sent to that provider; the workspace then uses lexical fallback. The key remains server-side.
+
 The AI Studio URLs shown in the page are reference links only; they are not connected API integrations. Skill Builder draft generation and direct integrations with those AI Studio apps remain separate future work.
+
+
+Provider references:
+- [Gemini API embeddings](https://ai.google.dev/gemini-api/docs/embeddings)
+- [Supabase pgvector](https://supabase.com/docs/guides/database/extensions/pgvector)
