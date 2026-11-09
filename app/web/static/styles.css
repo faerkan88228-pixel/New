@@ -581,3 +581,11 @@ canvas#waveformCanvas {
   .aw-section-head, .aw-panel-heading { align-items: flex-start; flex-direction: column; }
   .aw-external-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+.aw-action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.aw-action-row .aw-build-button { margin-top: 0; }
+#workspaceExecution { min-height: 48px; padding: 12px; border: 1px solid rgba(148, 83, 67, 0.22); border-radius: 8px; background: rgba(5, 8, 13, 0.46); color: #e8d8d0; font-size: 0.75rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .aw-action-row { grid-template-columns: minmax(0, 1fr); }
+}
