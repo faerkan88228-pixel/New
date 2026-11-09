@@ -11,10 +11,7 @@ from fastapi import HTTPException
 from app.agent.channels import global_event_bus
 from app.agent.memory import memory_manager
 from app.agentic_workspace.runtime_client import run_openmanus_runtime
-from app.agentic_workspace.service import (
-    get_agent_runtime_capabilities,
-    get_agent_runtime_contexts,
-)
+from app.agentic_workspace.service import get_agent_runtime_bundle
 
 
 class ManusAgent:
@@ -33,9 +30,12 @@ class ManusAgent:
 
         selected_capabilities: list[dict[str, Any]] = []
         runtime_contexts: list[dict[str, Any]] = []
+        retrieval_mode = "base_only"
         try:
-            selected_capabilities = await get_agent_runtime_capabilities(goal)
-            runtime_contexts = await get_agent_runtime_contexts(goal)
+            runtime_bundle = await get_agent_runtime_bundle(goal)
+            selected_capabilities = runtime_bundle["capabilities"]
+            runtime_contexts = runtime_bundle["contexts"]
+            retrieval_mode = runtime_bundle["retrieval_mode"]
         except Exception as exc:
             # The fixed base runtime can still run, but optional cloud overlays are unavailable.
             await global_event_bus.emit_monitor(
@@ -52,7 +52,11 @@ class ManusAgent:
 
         await global_event_bus.emit_monitor(
             "openmanus_runtime_started",
-            {"skills_loaded": len(runtime_contexts), "capabilities_selected": len(selected_capabilities)},
+            {
+                "skills_loaded": len(runtime_contexts),
+                "capabilities_selected": len(selected_capabilities),
+                "retrieval_mode": retrieval_mode,
+            },
         )
 
         try:
@@ -91,6 +95,7 @@ class ManusAgent:
             "goal": goal,
             "status": "completed",
             "runtime": "openmanus",
+            "retrieval_mode": retrieval_mode,
             "duration": duration,
             "steps": [],
             "selected_capabilities": selected_capabilities,
